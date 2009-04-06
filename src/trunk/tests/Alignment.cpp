@@ -34,7 +34,7 @@ public:
     void identAlignment() {
 	GenScores sm(.8, .3, 1, .1);
 	
-	GISeq seq("AAAAAAAA");
+	GISeq seq("AACATAGAACTTAGCTTAGCTATCGCGGTTTTACGATTCGATCGATTCGAT");
 
 	double score = alignmentScore(sm, seq, seq);
 

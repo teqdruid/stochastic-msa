@@ -180,15 +180,30 @@ public:
 	ChangeMap::iterator iter;
 	for (iter = changes.begin(); iter != changes.end(); iter++) {
 	    size_t cLen = iter->first - oPos;
+	    if ((oPos + cLen) >= seq.seqSize)
+		cLen = seq.seqSize - oPos;
 	    
 	    memcpy(&arr[nPos], &seq.seq[oPos], cLen*sizeof(T));
 
 	    if (iter->second.del) {
 		nPos += cLen;
 		oPos += cLen + 1;
+	    } else if (iter->second.ins) {
+		nPos += cLen;
+		arr[nPos] = (T)iter->second.t;
+		nPos++;
+		oPos += cLen;
+	    } else {
+		nPos += cLen;
+		oPos += cLen;
+		arr[nPos] = (T)iter->second.t;
+		nPos++;
+		oPos++;
 	    }
-	    oPos = iter->first + 1;
 	}
+
+	size_t cLen = seq.seqSize - changes.rbegin()->first;	
+	memcpy(&arr[nPos], &seq.seq[oPos], cLen*sizeof(T));
 
 	return new ImmutableSequence<T>(arr, size);
     }

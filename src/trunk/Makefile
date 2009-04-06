@@ -36,7 +36,7 @@ speedTest: speedTest.o $(OBJS) $(INCL)
 	g++ -o $@ speedTest.o $(OBJS) $(LDFLAGS)
 
 clean:
-	-$(RM) test $(OBJS) $(TESTOBJS) *~
+	-$(RM) test *.o $(OBJS) $(TESTOBJS) *~
 
 .cpp.o:
 	g++ $(CXXFLAGS) -c $< -o $@

@@ -26,12 +26,12 @@ double alignmentScore(M& m, A& a, B& b)
 		verticalGaps[i] = 0;
 	}
 
-	cout << "For testing purposes\n";
+	/*cout << "For testing purposes\n";
 	for(size_t i = 0; i < b.length()+1; i++)
 	{
 		cout << scores[i] << "\t";
 	}
-	cout << "\n";
+	cout << "\n";*/
 
 	//Recursion;
 	for(size_t i = 1; i < a.length()+1; i++)
@@ -63,11 +63,11 @@ double alignmentScore(M& m, A& a, B& b)
 		scores[b.length()] = tempScore;
 
 		//For testing purposes.
-		for(size_t i = 0; i < b.length()+1; i++)
+		/*for(size_t i = 0; i < b.length()+1; i++)
 		{
 			cout << scores[i] << "\t";
 		}
-		cout << "\n";
+		cout << "\n";*/
 	}
 
 	//Find the maximum score.
@@ -81,7 +81,7 @@ double alignmentScore(M& m, A& a, B& b)
 		}
 		i++;
 	}
-	cout << "Returning max score.\n";
+	//cout << "Returning max score.\n";
 	return maxScore;
 }
 
