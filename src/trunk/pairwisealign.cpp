@@ -194,5 +194,5 @@ void reconstructAlignment(A& a, B& b, const char*** directions)
 }
 
 
-//template double alignmentScore<GenScores, GISeq, GISeq>(GenScores&, GISeq&, GISeq&);
+template double alignmentScore<GenScores, GISeq, GISeq>(GenScores&, GISeq&, GISeq&);
 

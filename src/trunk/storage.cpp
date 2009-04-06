@@ -18,3 +18,4 @@ void parse(T** data, size_t* size, istream& inp) {
 }
 
 template void parse<GeneticSymbols>(GeneticSymbols** data, size_t* size, istream& inp);
+

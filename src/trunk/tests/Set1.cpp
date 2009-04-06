@@ -4,6 +4,32 @@
 #include <ctype.h>
 #include "storage.h"
 
+static string longRndSeq() {
+    size_t size = 500000; //Is 1/2 a million big enough?
+    char buffer[size+1];
+    
+    for (size_t i=0; i<size; i++) {
+	int r = rand() % 4;
+	switch (r) {
+	case 0:
+	    buffer[i] = 'A';
+	    break;
+	case 1:
+	    buffer[i] = 'C';
+	    break;
+	case 2:
+	    buffer[i] = 'G';
+	    break;
+	case 3:
+	    buffer[i] = 'T';
+	    break;
+	}
+    }
+    
+    buffer[size] = 0;
+    return buffer;
+}
+
 class ImmutableSequenceTest: public CppUnit::TestFixture  {
 
     CPPUNIT_TEST_SUITE( ImmutableSequenceTest );
@@ -62,3 +88,85 @@ public:
 
 
 CPPUNIT_TEST_SUITE_REGISTRATION( ImmutableSequenceTest );
+
+
+class MutableSequenceTest: public CppUnit::TestFixture  {
+
+    CPPUNIT_TEST_SUITE( MutableSequenceTest );
+
+    //CPPUNIT_TEST( bigTest );
+    CPPUNIT_TEST( changeTest );
+
+    CPPUNIT_TEST_SUITE_END();
+
+public:
+    void setUp() {
+	srand(time(NULL));
+    }
+
+    void tearDown() {
+
+    }
+
+    string normalizeStr(string& s) {
+	char buf[s.length()+1];
+	size_t size = 0;
+	for (size_t i=0; i<s.length(); i++) {
+	    char c = s[i];
+	    if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
+		continue;
+	    buf[size++] = toupper(c);
+	}
+	buf[size] = 0;
+	return buf;
+    }
+
+    void changeTest() {
+	string sSeq = "AATCG";
+	GISeq is(sSeq);
+
+	MGISeq ms(is);
+
+	int change = 0;
+	size_t len = is.length();
+	for (size_t i=0; i<2; i++) {
+	    size_t loc = rand() % len;
+	    size_t insDel = rand() % 3;
+	    GeneticSymbols t = (GeneticSymbols) (rand() & 0b11);
+
+	    switch(insDel) {
+	    case 0:
+		printf("Set %u to %c\n", loc, toChar(t));
+		ms.set(loc, t);
+		break;
+	    case 1:
+		printf("Insert %u, %c\n", loc, toChar(t));
+		ms.del(loc);
+		change--;
+		break;
+	    case 2:
+		printf("Delete %u\n", loc);
+		ms.insert(loc, t);
+		change++;
+		break;
+	    }
+	}
+
+	GISeq* ns = NULL; //ms.commit();
+
+	if (ns == NULL) {
+	    CPPUNIT_ASSERT(false);
+	    return;
+	}
+
+	cout << "Compare: " << endl << sSeq << endl << ns->toString() << endl;
+
+	CPPUNIT_ASSERT_EQUAL(is.length() + change, ns->length());
+	CPPUNIT_ASSERT_EQUAL(sSeq.length() + change, ns->toString().length());
+
+	CPPUNIT_ASSERT(sSeq != ns->toString());
+    }
+};
+
+
+CPPUNIT_TEST_SUITE_REGISTRATION( MutableSequenceTest );
