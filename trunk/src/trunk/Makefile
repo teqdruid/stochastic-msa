@@ -16,7 +16,7 @@ INCL  	= storage.h algo.h
 ################
 # Optional add #
 ################
-CXXFLAGS = -I. -Wall -g # -O2
+CXXFLAGS = -I. -Wall -g 
 LDFLAGS  = -g
 
 #####################
@@ -27,10 +27,13 @@ TESTOBJS =$(TESTS:.cpp=.o)
 RM 	= /bin/rm -f 	
 STRIP	= strip
 
-all:	test
+all:	test speedTest
 
 test: test.o $(OBJS) $(TESTOBJS) $(INCL)
-	g++ -o $@ test.o $(OBJS) $(TESTOBJS) -lcppunit
+	g++ -o $@ test.o $(OBJS) $(TESTOBJS) $(LDFLAGS) -lcppunit
+
+speedTest: speedTest.o $(OBJS) $(INCL)
+	g++ -o $@ speedTest.o $(OBJS) $(LDFLAGS)
 
 clean:
 	-$(RM) test $(OBJS) $(TESTOBJS) *~

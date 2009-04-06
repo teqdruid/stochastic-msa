@@ -11,6 +11,8 @@
 #include <cstring>
 #include <iostream>
 #include <sstream>
+#include <map>
+#include <iterator>
 #include <exception>
 
 using namespace std;
@@ -71,11 +73,18 @@ template <class T>
 void parse(T** data, size_t* size, istream&);
 
 template <class T>
+class MutableSequence;
+
+template <class T>
 class ImmutableSequence
 {
+    friend class MutableSequence<T>;
     T* seq;
     size_t seqSize;
 
+    ImmutableSequence(T* seq, size_t size)
+	: seq(seq), seqSize(size) {}
+    
 public:
     ImmutableSequence(istream s)
     {
@@ -125,40 +134,106 @@ public:
     }
 };
 
+struct Change {
+    bool ins;
+    bool del;
+    size_t t;
+
+    Change(bool ins, bool del, size_t t)
+    : ins(ins), del(del), t(t) {}
+
+    Change() {}
+};
+
 template <class T>
 class MutableSequence
 {
+    typedef map<size_t, struct Change> ChangeMap;
+
+    ImmutableSequence<T>& seq;
+    ChangeMap changes;
+     
 public:
 
-    MutableSequence(ImmutableSequence<T>& seq);
-    T at(size_t idx);
+    MutableSequence(ImmutableSequence<T>& seq) 
+	: seq(seq) {}
+    void set(size_t idx, T t) {
+	changes[idx] = Change(false, false, (size_t)t);
+    }
+
+    //Insert a character before index
+    void insert(size_t idx, T t) {
+	changes[idx] = Change(true, false, (size_t)t);
+    }
+
+    //Delete index
+    void del(size_t idx) {
+	changes[idx] = Change(false, true, 0);
+    }
+
+    //Create an immutable sequence from this
+    ImmutableSequence<T>* commit() {
+	size_t size = length();
+	T *arr = (T*)malloc(sizeof(T) * size);
+	size_t nPos = 0, oPos = 0;
+	
+	ChangeMap::iterator iter;
+	for (iter = changes.begin(); iter != changes.end(); iter++) {
+	    size_t cLen = iter->first - oPos;
+	    
+	    memcpy(&arr[nPos], &seq.seq[oPos], cLen*sizeof(T));
+
+	    if (iter->second.del) {
+		nPos += cLen;
+		oPos += cLen + 1;
+	    }
+	    oPos = iter->first + 1;
+	}
+
+	return new ImmutableSequence<T>(arr, size);
+    }
+
+    size_t length() {
+	int add = 0;
+
+	for (ChangeMap::iterator i = changes.begin(); i != changes.end(); i++) {
+	    if (i->second.del)
+		--add;
+	    if (i->second.ins)
+		++add;
+	}
+
+	return seq.length() + add;
+    }
+
 };
 
 template <class T, int S>
 class ScoringMatrix {
 public:
     double matrix[S*S];
-    double gap;
-    float alpha;
-    float beta;
+    double alpha;
+    double beta;
 
     ScoringMatrix() {}
 
-    /*ScoringMatrix(double alpha, double gap)
+    ScoringMatrix(double match, double nonmatch, double alpha, double beta)
     {
-    	double diag = 1.0 - alpha * S;
     	for (size_t i = 0; i<(S*S); i++)
     	{
-    		matrix[i] = alpha;
+    		matrix[i] = nonmatch;
     	}
 
     	for (size_t i=0; i<S; i++)
     	{
-    		matrix[i*S + i] = diag;
+    		matrix[i*S + i] = match;
     	}
-    }*/
 
-    ScoringMatrix(float alpha, float beta)
+	this->alpha = alpha;
+	this->beta = beta;
+    }
+
+    ScoringMatrix(double alpha, double beta)
     {
     	this->alpha = alpha;
     	this->beta = beta;
@@ -166,15 +241,7 @@ public:
 
     double score(T a, T b)
     {
-    	if(a == b)
-    	{
-    		return 1;
-    	}
-    	else
-    	{
-    		return 0;
-    	}
-    	//return matrix[a*S + b];
+    	return matrix[a*S + b];
     }
 
     double affineScore(int gapSize)
@@ -189,5 +256,6 @@ public:
 
 typedef ScoringMatrix<GeneticSymbols, 4> GenScores;
 typedef ImmutableSequence<GeneticSymbols> GISeq;
+typedef MutableSequence<GeneticSymbols> MGISeq;
 
 #endif 	    /* !STORAGE_H_ */

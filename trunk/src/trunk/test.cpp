@@ -1,18 +1,20 @@
-//#include <cppunit/extensions/TestFactoryRegistry.h>
-//#include <cppunit/ui/text/TestRunner.h>
+#include <cppunit/extensions/TestFactoryRegistry.h>
+#include <cppunit/ui/text/TestRunner.h>
 #include "storage.h"
 #include "pairwisealign.cpp"
-/*int main( int argc, char **argv)
+
+int main( int argc, char **argv)
 {
   CppUnit::TextUi::TestRunner runner;
-  CppUnit::TestFactoryRegistry &registry = CppUnit::TestFactoryRegistry::getRegistry();
+  CppUnit::TestFactoryRegistry &registry =
+      CppUnit::TestFactoryRegistry::getRegistry();
   runner.addTest( registry.makeTest() );
   bool wasSuccessful = runner.run( "", false );
   return wasSuccessful;
 }
-*/
 
-int main()
+
+ /*int main()
 {
 	GenScores* scoreMatrix = new GenScores(0.3, 0.02);
 	GISeq* seqA = new GISeq("ACGT");
@@ -28,3 +30,4 @@ int main()
 	}
 	delete[] directions;
 }
+ */
