@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <ctype.h>
+#include <set>
 #include "storage.h"
 
 static string longRndSeq() {
@@ -122,44 +123,53 @@ public:
     }
 
     void changeTest() {
-	string sSeq = "AATCG";
+	string sSeq = longRndSeq();
 	GISeq is(sSeq);
 
 	MGISeq ms(is);
 
 	int change = 0;
 	size_t len = is.length();
-	for (size_t i=0; i<2; i++) {
+
+	set<int> touched;
+	for (size_t i=0; i<1000; i++) {
 	    size_t loc = rand() % len;
 	    size_t insDel = rand() % 3;
 	    GeneticSymbols t = (GeneticSymbols) (rand() & 0b11);
 
+	    if (touched.count(loc)) {
+		--i;
+		continue;
+	    }
+
+	    touched.insert(loc);
+
 	    switch(insDel) {
 	    case 0:
-		printf("Set %u to %c\n", loc, toChar(t));
+		//printf("Set %u to %c\n", loc, toChar(t));
 		ms.set(loc, t);
 		break;
 	    case 1:
-		printf("Insert %u, %c\n", loc, toChar(t));
+		//printf("Delete %u\n", loc);
 		ms.del(loc);
 		change--;
 		break;
 	    case 2:
-		printf("Delete %u\n", loc);
+		//printf("Insert %u, %c\n", loc, toChar(t));
 		ms.insert(loc, t);
 		change++;
 		break;
 	    }
 	}
 
-	GISeq* ns = NULL; //ms.commit();
+	GISeq* ns = ms.commit();
 
 	if (ns == NULL) {
 	    CPPUNIT_ASSERT(false);
 	    return;
 	}
 
-	cout << "Compare: " << endl << sSeq << endl << ns->toString() << endl;
+	//cout << "Compare: " << endl << sSeq << endl << ns->toString() << endl;
 
 	CPPUNIT_ASSERT_EQUAL(is.length() + change, ns->length());
 	CPPUNIT_ASSERT_EQUAL(sSeq.length() + change, ns->toString().length());
