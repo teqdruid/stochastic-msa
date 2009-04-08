@@ -12,12 +12,12 @@ void MSA<T>::read(istream& is) {
 template<class T>
 void MSA<T>::execute() {
     {
-	set<ImmutableSequence<T>*> iSet = generator->generateSet(*this);
+	vector<ImmutableSequence<T>*> iSet = generator->generateSet(*this);
 	this->scoreAddProfiles(iSet);
     }
 
     while (!terminator->terminate(*this)) {
-	set<ImmutableSequence<T>*> newSet =
+	vector<ImmutableSequence<T>*> newSet =
 	    this->mutator->mutate(*this);
 
 	this->scoreAddProfiles(newSet);
@@ -38,14 +38,16 @@ void MSA<T>::execute() {
 }
 
 template<class T>
-void MSA<T>::scoreAddProfiles(set<ImmutableSequence<T>*>& profs) {
-    typeof(profs.begin()) iter;
+void MSA<T>::scoreAddProfiles(vector<ImmutableSequence<T>*>& profs) {
+    int size = profs.size();
 
-    for (iter = profs.begin(); iter != profs.end(); iter++) {
+#pragma omp parallel for
+    for (int i=0; i<size; i++) {
 	pair<double, ImmutableSequence<T>*> p;
-	p.second = *iter;
-	p.first = this->scorer->score(**iter, *this);
-
+	p.second = profs[i];
+	p.first = this->scorer->score(*p.second, *this);
+	
+#pragma omp critical
 	this->profiles.push_back(p);
     }
 }
@@ -137,12 +139,12 @@ template<class T>
 class RandomPicker: public Generator<T> {
 public:
     RandomPicker() { srand(time(NULL)); }
-    virtual set<ImmutableSequence<T>*> generateSet(MSA<T>& msa) {
-	set<ImmutableSequence<T>*> ret;
+    virtual vector<ImmutableSequence<T>*> generateSet(MSA<T>& msa) {
+	vector<ImmutableSequence<T>*> ret;
 
 	for (size_t i=0; i<msa.K; ++i) {
 	    size_t s = rand() % msa.sequences.size();
-	    ret.insert(msa.sequences[s]->copy());
+	    ret.push_back(msa.sequences[s]->copy());
 	}
 
 	return ret;
@@ -165,24 +167,26 @@ public:
 template<class T>
 class TotallyRandomMutator : public Mutator<T> {
 public:
-    size_t outputs;
-    size_t mutations;
+    long outputs;
+    long mutations;
     TotallyRandomMutator(size_t outputs, size_t mutations) :
 	outputs(outputs), mutations(mutations) {
 	srand(time(NULL));
     }
 
-    virtual set<ImmutableSequence<T>*> mutate(MSA<T>& msa) {
-	set<ImmutableSequence<T>*> ret;
-	for (size_t i=0; i<outputs; ++i) {
+    virtual vector<ImmutableSequence<T>*> mutate(MSA<T>& msa) {
+	vector<ImmutableSequence<T>*> ret;
+
+#pragma omp parallel for shared(ret)
+	for (long i=0; i<outputs; ++i) {
 	    ImmutableSequence<T>* is =
 		msa.sequences[rand() % msa.sequences.size()];
 	    MutableSequence<T> m(*is);
 
-	    for (size_t j=0; j<mutations; j++) {
+	    for (long j=0; j<mutations; j++) {
 		size_t loc = rand() % is->length();
 		size_t insDel = rand() % 3;
-		GeneticSymbols t = (GeneticSymbols) (rand() & 0b11);
+		GeneticSymbols t = (GeneticSymbols) (rand() & 3);
 
 		switch(insDel){
 		case 0:
@@ -197,7 +201,8 @@ public:
 		} 
 	    }
 
-	    ret.insert(m.commit());
+#pragma omp critical
+	    ret.push_back(m.commit());
 	}
 	return ret;
     }
@@ -272,8 +277,13 @@ int main(int argv, char** argc) {
     msa.read(inp);
 
     if (filename == "genRandom" && msa.sequences.size() == 0) {
-	for (size_t i=0; i < 50; i++)
-	    msa.sequences.push_back(longRndSeq(500));
+#pragma omp parallel for
+	for (int i=0; i < 50; i++) {
+	    ImmutableSequence<GeneticSymbols>* n = longRndSeq(500);
+
+#pragma omp critical
+	    msa.sequences.push_back(n);
+	}
     }
 
     if (msa.sequences.size() < 3) {

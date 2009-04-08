@@ -82,7 +82,7 @@ int main(void) {
 	for (size_t i=0; i<totalMutations; i++) {
 	    size_t loc = rand() % len;
 	    size_t insDel = rand() % 3;
-	    GeneticSymbols t = (GeneticSymbols) (rand() & 0b11);
+	    GeneticSymbols t = (GeneticSymbols) (rand() & 3);
 
 	    if (touched.count(loc)) {
 		--i;

@@ -29,7 +29,7 @@ public:
 template<class T>
 class Mutator {
 public:
-    virtual set<ImmutableSequence<T>*>
+    virtual vector<ImmutableSequence<T>*>
 	mutate(MSA<T>& msa) = 0;
 };
 
@@ -42,7 +42,7 @@ public:
 template<class T>
 class Generator {
 public:
-    virtual set<ImmutableSequence<T>*> generateSet(MSA<T>& msa) = 0;
+    virtual vector<ImmutableSequence<T>*> generateSet(MSA<T>& msa) = 0;
 };
 
 template<class T>
@@ -72,7 +72,7 @@ public:
     void printFinalAlign(ostream* os);
 
 private:
-    void scoreAddProfiles(set<ImmutableSequence<T>*>& profs);
+    void scoreAddProfiles(vector<ImmutableSequence<T>*>& profs);
 };
 
 
