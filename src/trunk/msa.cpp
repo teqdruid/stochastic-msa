@@ -40,11 +40,8 @@ void MSA<T>::execute() {
 	this->profiles.swap(selset);
 
 	for (size_t i=0; i<selset.size(); i++) {
-	    if (find(this->profiles.begin(), this->profiles.end(), selset[i])
-		== this->profiles.end()) {
-		//This profile was not selected
-		delete selset[i].second;
-	    }
+	    //This profile was not selected
+	    delete selset[i].second;
 	}
     }
 }
@@ -64,18 +61,25 @@ void MSA<T>::scoreAddProfiles(vector<ImmutableSequence<T>*>& profs) {
     }
 }
 
+//Used to sort profiles by their score
+template<class T>
+bool pairCmp( pair<double, ImmutableSequence<T>* > a,
+	  pair<double, ImmutableSequence<T>* > b ) {
+    return a.first > b.first;
+}
+
 template<class T>
 pair<double, ImmutableSequence<T>* > MSA<T>::best() {
-    pair<double, ImmutableSequence<T>* > high;
+    sort(profiles.begin(), profiles.end(), pairCmp<T>);
+    return profiles[0];
+}
 
-    high.first = -99999999.9;
+template<class T>
+pair<double, ImmutableSequence<T>* > MSA<T>::worst() {
 
-    for (size_t i=0; i<profiles.size(); ++i) {
-	if (profiles[i].first > high.first)
-	    high = profiles[i];
-    }
+    sort(profiles.begin(), profiles.end(), pairCmp<T>);
 
-    return high;
+    return *profiles.end();
 }
 
 template<class T>
@@ -114,11 +118,12 @@ public:
     virtual double score(ImmutableSequence<T>& profile, MSA<T>& msa) {
 	double total = 0.0;
 
-	for (size_t i = 0; i<msa.sequences.size(); ++i) {
+	long seqSize = msa.sequences.size();
+	for (long i = 0; i<seqSize; ++i) {
 	    total += alignmentScore(*msa.scores, profile, *msa.sequences[i]);
 	}
 
-	return total;
+	return total / ((double)seqSize);;
     }
 
     virtual bool rescore() { return false; }
@@ -128,15 +133,13 @@ template<class T>
 class SampledStarScore: public Scorer<T> {
 public:
     long samples;
-    double factor;
+
     SampledStarScore(long samples, MSA<T>& msa) : samples(samples) {
 	srand(time(NULL));
-	factor = ((double)msa.sequences.size()) / ((double)samples);
     }
 
     SampledStarScore(double frac, MSA<T>& msa) {
 	srand(time(NULL));
-	factor = 1.0 / frac;
 	samples = round(msa.sequences.size() * frac);
     }
 
@@ -149,18 +152,11 @@ public:
 	    total += alignmentScore(*msa.scores, profile, *msa.sequences[rIndx]);
 	}
 
-	return total * factor;
+	return total / ((double)samples);
     }
 
     virtual bool rescore() { return true; }
 };
-
-//Used to sort profiles by their score
-template<class T>
-bool pairCmp( pair<double, ImmutableSequence<T>* > a,
-	  pair<double, ImmutableSequence<T>* > b ) {
-    return a.first > b.first;
-}
 
 
 //This guys just selects the K best profiles
@@ -169,12 +165,52 @@ class HighSelector: public Selector<T> {
 public:
     vector< pair<double, ImmutableSequence<T>* > >
     select(MSA<T>& msa, size_t k) {
+	sort(msa.profiles.begin(), msa.profiles.end(), pairCmp<T>);
+
+	vector< pair<double, ImmutableSequence<T>* > > 
+	    ret(msa.profiles.begin(), msa.profiles.begin() + k);
+
+	msa.profiles.erase(msa.profiles.begin(), msa.profiles.begin() + k);
+
+	assert(ret.size() == k);
+
+	return ret;
+    }
+};
+
+//This guys just selects profiles stochastically
+template<class T>
+class StochasticSelector: public Selector<T> {
+public:
+    StochasticSelector() {
+	srandom(time(NULL));
+    }
+
+    //TODO: This now takes O(p*k) , p = #of profiles.  Do it faster
+    vector< pair<double, ImmutableSequence<T>* > >
+    select(MSA<T>& msa, size_t k) {
 	vector< pair<double, ImmutableSequence<T>* > > ret;
 	sort(msa.profiles.begin(), msa.profiles.end(), pairCmp<T>);
 
-	for (size_t i=0; i<k; ++i) {
-	    ret.push_back(msa.profiles[i]);
+	double totalScore = 0;
+	for (size_t i=0; i<msa.profiles.size(); i++)
+	    totalScore += msa.profiles[i].first;
+	
+	for (size_t j=0; j<k; ++j) {
+	    double sel = random() % ((long int)round(totalScore));
+	    double count = 0.0;
+	    for (size_t i=0; i<msa.profiles.size(); i++) {
+		count += msa.profiles[i].first;
+		if (count >= sel) {
+		    totalScore -= msa.profiles[i].first;
+		    ret.push_back(msa.profiles[i]);
+		    msa.profiles.erase(msa.profiles.begin() + i);
+		    break;
+		}
+	    }
 	}
+
+	assert(ret.size() == k);
 
 	return ret;
     }
@@ -205,7 +241,9 @@ public:
     IterationsTerminator(size_t max): count(0), max(max) {}
     virtual bool terminate(MSA<T>& msa) {
 	cout << "Starting iteration: " << count 
-	     << " best score: " << msa.best().first << endl;
+	     << " best score: " << msa.best().first
+	     << " range: " << (double)(msa.best().first - msa.worst().first)
+	     << endl;
 	return count++ >= max;
     };
 };
@@ -357,16 +395,16 @@ int main(int argv, char** argc) {
     if (msa.scores == NULL)
 	msa.scores = new GenScores(.8, .3, 1, .1);
     if (msa.scorer == NULL)
-	msa.scorer = new SampledStarScore<GeneticSymbols>(20l, msa);
-	//msa.scorer = new StarScore<GeneticSymbols>();
+	msa.scorer = new StarScore<GeneticSymbols>();
     if (msa.selector == NULL)
-	msa.selector = new HighSelector<GeneticSymbols>();
+	//msa.selector = new HighSelector<GeneticSymbols>();
+	msa.selector = new StochasticSelector<GeneticSymbols>();
     if (msa.generator == NULL)
 	msa.generator = new RandomPicker<GeneticSymbols>();
     if (msa.terminator == NULL)
 	msa.terminator = new IterationsTerminator<GeneticSymbols>(10);
     if (msa.mutator == NULL)
-	msa.mutator = new TotallyRandomMutator<GeneticSymbols>(25, 15);
+	msa.mutator = new TotallyRandomMutator<GeneticSymbols>(25, 50);
 
     {Timer a("Execution");
 	msa.execute();
