@@ -1,6 +1,8 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
+#include <cmath>
+#include <sys/time.h>
 #include <msa.h>
 #include <algo.h>
 
@@ -17,6 +19,16 @@ void MSA<T>::execute() {
     }
 
     while (!terminator->terminate(*this)) {
+	if (this->scorer->rescore()) {
+	    int size = this->profiles.size();
+
+#pragma omp parallel for
+	    for (int i=0; i<size; i++) {
+		pair<double, ImmutableSequence<T>*>& p = this->profiles[i];
+		p.first = this->scorer->score(*p.second, *this);
+	    }
+	}
+ 
 	vector<ImmutableSequence<T>*> newSet =
 	    this->mutator->mutate(*this);
 
@@ -98,6 +110,7 @@ MSA<T>::~MSA() {
 
 template<class T>
 class StarScore: public Scorer<T> {
+public:
     virtual double score(ImmutableSequence<T>& profile, MSA<T>& msa) {
 	double total = 0.0;
 
@@ -107,9 +120,40 @@ class StarScore: public Scorer<T> {
 
 	return total;
     }
+
+    virtual bool rescore() { return false; }
 };
 
+template<class T>
+class SampledStarScore: public Scorer<T> {
+public:
+    long samples;
+    double factor;
+    SampledStarScore(long samples, MSA<T>& msa) : samples(samples) {
+	srand(time(NULL));
+	factor = ((double)msa.sequences.size()) / ((double)samples);
+    }
 
+    SampledStarScore(double frac, MSA<T>& msa) {
+	srand(time(NULL));
+	factor = 1.0 / frac;
+	samples = round(msa.sequences.size() * frac);
+    }
+
+    virtual double score(ImmutableSequence<T>& profile, MSA<T>& msa) {
+	double total = 0.0;
+
+	long seqSize = msa.sequences.size();
+	for (long i = 0; i<samples; ++i) {
+	    long rIndx = rand() % seqSize;
+	    total += alignmentScore(*msa.scores, profile, *msa.sequences[rIndx]);
+	}
+
+	return total * factor;
+    }
+
+    virtual bool rescore() { return true; }
+};
 
 //Used to sort profiles by their score
 template<class T>
@@ -122,6 +166,7 @@ bool pairCmp( pair<double, ImmutableSequence<T>* > a,
 //This guys just selects the K best profiles
 template<class T>
 class HighSelector: public Selector<T> {
+public:
     vector< pair<double, ImmutableSequence<T>* > >
     select(MSA<T>& msa, size_t k) {
 	vector< pair<double, ImmutableSequence<T>* > > ret;
@@ -159,7 +204,8 @@ public:
 
     IterationsTerminator(size_t max): count(0), max(max) {}
     virtual bool terminate(MSA<T>& msa) {
-	cout << "Starting iteration: " << count << endl;
+	cout << "Starting iteration: " << count 
+	     << " best score: " << msa.best().first << endl;
 	return count++ >= max;
     };
 };
@@ -212,6 +258,34 @@ public:
  *  Primary execution area
  ******/
 
+double get_runtime(void)
+{
+    struct timeval t;
+    gettimeofday(&t, NULL);
+    return ((double)t.tv_sec) + (((double)t.tv_usec) / 1e6);
+}
+
+class Timer {
+public:
+    double start, end;
+    string name;
+    Timer(string name) {
+	this->name = name;
+	start = get_runtime();
+    }
+
+    Timer() {
+	name = "";
+	start = get_runtime();
+    }
+
+    ~Timer() {
+	end = get_runtime();
+
+	printf("----%15s Timer (s):\t%lf\n", name.c_str(), (end-start));
+    }
+};
+
 static ImmutableSequence<GeneticSymbols>* longRndSeq(size_t size) {
     GeneticSymbols* buffer = (GeneticSymbols*)malloc(size*sizeof(GeneticSymbols));
     
@@ -255,6 +329,26 @@ int main(int argv, char** argc) {
 	return 1;
     }
 
+    {Timer a("Read data");
+	ifstream inp(filename.c_str(), ios::in);
+	msa.read(inp);
+	
+	if (filename == "genRandom" && msa.sequences.size() == 0) {
+#pragma omp parallel for
+	    for (int i=0; i < 50; i++) {
+		ImmutableSequence<GeneticSymbols>* n = longRndSeq(500);
+		
+#pragma omp critical
+		msa.sequences.push_back(n);
+	    }
+	}
+    }
+    
+    if (msa.sequences.size() < 3) {
+	cerr << "Error: only found " <<
+	    msa.sequences.size() << " sequences in file." << endl;
+	return 1;
+    }
 
     //Fill in defaults
     if (msa.K == 0)
@@ -263,7 +357,8 @@ int main(int argv, char** argc) {
     if (msa.scores == NULL)
 	msa.scores = new GenScores(.8, .3, 1, .1);
     if (msa.scorer == NULL)
-	msa.scorer = new StarScore<GeneticSymbols>();
+	msa.scorer = new SampledStarScore<GeneticSymbols>(20l, msa);
+	//msa.scorer = new StarScore<GeneticSymbols>();
     if (msa.selector == NULL)
 	msa.selector = new HighSelector<GeneticSymbols>();
     if (msa.generator == NULL)
@@ -273,28 +368,16 @@ int main(int argv, char** argc) {
     if (msa.mutator == NULL)
 	msa.mutator = new TotallyRandomMutator<GeneticSymbols>(25, 15);
 
-    ifstream inp(filename.c_str(), ios::in);
-    msa.read(inp);
-
-    if (filename == "genRandom" && msa.sequences.size() == 0) {
-#pragma omp parallel for
-	for (int i=0; i < 50; i++) {
-	    ImmutableSequence<GeneticSymbols>* n = longRndSeq(500);
-
-#pragma omp critical
-	    msa.sequences.push_back(n);
-	}
+    {Timer a("Execution");
+	msa.execute();
     }
 
-    if (msa.sequences.size() < 3) {
-	cerr << "Error: only found " <<
-	    msa.sequences.size() << " sequences in file." << endl;
-	return 1;
+    StarScore<GeneticSymbols> ss;
+
+    {Timer a("Score compute");
+	cout << "Star score of best alignment found: " << 
+	    ss.score(*msa.best().second, msa) << endl;
     }
-
-    msa.execute();
-
-    cout << "Score of best alignment found: " << msa.best().first << endl;
     
     return 0;
 }
