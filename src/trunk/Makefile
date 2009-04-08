@@ -12,11 +12,11 @@
 ##############################
 SRC	= storage.cpp pairwisealign.cpp 
 TESTS   = tests/Set1.cpp tests/Alignment.cpp
-INCL  	= storage.h algo.h
+INCL  	= storage.h algo.h msa.h
 ################
 # Optional add #
 ################
-CXXFLAGS = -I. -Wall -g 
+CXXFLAGS = -I. -Wall -g
 LDFLAGS  = -g
 
 #####################
@@ -27,13 +27,16 @@ TESTOBJS =$(TESTS:.cpp=.o)
 RM 	= /bin/rm -f 	
 STRIP	= strip
 
-all:	test speedTest
+all:	test speedTest msa
 
 test: test.o $(OBJS) $(TESTOBJS) $(INCL)
 	g++ -o $@ test.o $(OBJS) $(TESTOBJS) $(LDFLAGS) -lcppunit
 
 speedTest: speedTest.o $(OBJS) $(INCL)
 	g++ -o $@ speedTest.o $(OBJS) $(LDFLAGS)
+
+msa: msa.o $(OBJS) $(INCL)
+	g++ -o $@ msa.o $(OBJS) $(LDFLAGS)
 
 clean:
 	-$(RM) test *.o $(OBJS) $(TESTOBJS) *~
