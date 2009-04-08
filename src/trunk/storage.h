@@ -82,10 +82,10 @@ class ImmutableSequence
     T* seq;
     size_t seqSize;
 
+public:
     ImmutableSequence(T* seq, size_t size)
 	: seq(seq), seqSize(size) {}
     
-public:
     ImmutableSequence(istream s)
     {
     	parse(&seq, &seqSize, s);
@@ -102,6 +102,12 @@ public:
     ~ImmutableSequence()
     {
     	free(this->seq);
+    }
+
+    ImmutableSequence* copy() {
+	T* seqCpy = (T*)malloc(seqSize*sizeof(T));
+	memcpy(seqCpy, seq, seqSize*sizeof(T));
+	return new ImmutableSequence(seqCpy, seqSize);
     }
 
     T at(size_t idx)
@@ -202,7 +208,7 @@ public:
 	    }
 	}
 
-	size_t cLen = seq.seqSize - changes.rbegin()->first;	
+	int cLen = size - nPos;
 	memcpy(&arr[nPos], &seq.seq[oPos], cLen*sizeof(T));
 
 	return new ImmutableSequence<T>(arr, size);
