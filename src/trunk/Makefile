@@ -16,8 +16,8 @@ INCL  	= storage.h algo.h msa.h
 ################
 # Optional add #
 ################
-CXXFLAGS = -I. -Wall -g -O3
-LDFLAGS  = -g -O3
+CXXFLAGS = -I. -Wall -g -O3 -fopenmp
+LDFLAGS  = -g -fopenmp
 
 #####################
 # Macro Definitions #
@@ -43,6 +43,9 @@ clean:
 
 .cpp.o:
 	g++ $(CXXFLAGS) -c $< -o $@
+
+jup:
+	rsync -av . jdd2127@compute:stochastic-msa/
 
 
 ################
