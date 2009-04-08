@@ -63,6 +63,7 @@ public:
 
 public:
     MSA();
+    ~MSA();
 
     void read(istream& is);
     void execute();

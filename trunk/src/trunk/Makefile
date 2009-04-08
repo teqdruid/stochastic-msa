@@ -16,8 +16,8 @@ INCL  	= storage.h algo.h msa.h
 ################
 # Optional add #
 ################
-CXXFLAGS = -I. -Wall -g
-LDFLAGS  = -g
+CXXFLAGS = -I. -Wall -g -O3
+LDFLAGS  = -g -O3
 
 #####################
 # Macro Definitions #
