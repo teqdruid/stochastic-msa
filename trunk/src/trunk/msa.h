@@ -16,6 +16,7 @@ template<class T> class MSA;
 template<class T>
 class Scorer {
 public:
+    virtual bool rescore() = 0; //Do we have to re-score each round?
     virtual double score(ImmutableSequence<T>& profile, MSA<T>& msa) = 0;
 };
 
