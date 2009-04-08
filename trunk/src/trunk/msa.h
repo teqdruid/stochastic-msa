@@ -70,6 +70,7 @@ public:
     void execute();
 
     pair<double, ImmutableSequence<T>* > best();
+    pair<double, ImmutableSequence<T>* > worst();
     void printFinalAlign(ostream* os);
 
 private:
