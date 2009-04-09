@@ -1,21 +1,41 @@
 #include "storage.h"
 
-template<class T>
-void parse(T** data, size_t* size, istream& inp) {
-    inp >> *size;
-    *data = (T*)malloc(sizeof(T) * *size);
+void parse(string& identifier, GeneticSymbols*& data,
+	   size_t& size, istream& inp) {
+    char buffer[128];
+    size_t cap = 100;
+    size = 0;
+    data = (GeneticSymbols*)malloc(sizeof(GeneticSymbols) * cap);
 
-    size_t aSize = 0;
-    for (size_t i=0; i<(*size); ++i) {
-	char c;
-	inp.get(c);
-	if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
-	    continue;
-	(*data)[aSize++] = fromChar(c);
+    if (inp.peek() == '>') {
+	char buffer[1024];
+	inp.getline(buffer, 1024);
+	identifier = string(&buffer[1]);
     }
 
-    *size = aSize;
+    while (!inp.eof()) {
+	inp.get(buffer, 128, '>');
+	size_t bfill = inp.gcount();
+
+	for (size_t i=0; i<bfill; i++) {
+	    char c = buffer[i];
+	    if (c == ' ' || c == '\t' || c == '\n' || c == '\r'
+		|| c == 'N' || c == 'n')
+		continue; 
+
+	    if (size > cap) {
+		cap *= 2;
+		data = (GeneticSymbols*)realloc(data, sizeof(GeneticSymbols) * cap);
+	    }
+
+	    data[size++] = fromChar(c);
+	}
+
+	if (inp.eof() || inp.peek() == '>')
+	    break;
+    }
+
+    data = (GeneticSymbols*)realloc(data, sizeof(GeneticSymbols) * size);
 }
 
-template void parse<GeneticSymbols>(GeneticSymbols** data, size_t* size, istream& inp);
 

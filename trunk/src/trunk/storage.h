@@ -18,18 +18,18 @@
 using namespace std;
 
 class MsaException : public std::exception {
-	public:
-		string msg;
-		MsaException(const char* msg)
-		{
-			this->msg = msg;
-		}
-
-		virtual ~MsaException() throw() {}
-		virtual const char* what()
-		{
-			return msg.c_str();
-		}
+public:
+    string msg;
+    MsaException(const char* msg)
+    {
+	this->msg = msg;
+    }
+    
+    virtual ~MsaException() throw() {}
+    virtual const char* what()
+    {
+	return msg.c_str();
+    }
 };
 
 typedef enum
@@ -68,9 +68,8 @@ __inline__ GeneticSymbols fromChar(char c)
     }
 }
 
-
-template <class T>
-void parse(T** data, size_t* size, istream&);
+void parse(string& identifier, GeneticSymbols*& data,
+	   size_t& size, istream& inp);
 
 template <class T>
 class MutableSequence;
@@ -83,20 +82,22 @@ class ImmutableSequence
     size_t seqSize;
 
 public:
+    string identifier;
+
     ImmutableSequence(T* seq, size_t size)
 	: seq(seq), seqSize(size) {}
     
-    ImmutableSequence(istream s)
+    ImmutableSequence(istream& s)
     {
-    	parse(&seq, &seqSize, s);
+    	parse(identifier, seq, seqSize, s);
     }
 
     ImmutableSequence(string seqstr)
     {
     	seqSize = seqstr.length();
     	stringstream ss(stringstream::in | stringstream::out);
-    	ss << seqSize << seqstr;
-    	parse(&seq, &seqSize, ss);
+	ss.str(seqstr);
+    	parse(identifier, seq, seqSize, ss);
     }
 
     ~ImmutableSequence()
