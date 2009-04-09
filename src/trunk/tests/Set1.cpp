@@ -36,6 +36,7 @@ class ImmutableSequenceTest: public CppUnit::TestFixture  {
     CPPUNIT_TEST_SUITE( ImmutableSequenceTest );
 
     CPPUNIT_TEST( testParse );
+    CPPUNIT_TEST( testMulti );
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -55,6 +56,8 @@ public:
 	    char c = s[i];
 	    if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
 		continue;
+	    if (c == '>')
+		break;
 	    buf[size++] = toupper(c);
 	}
 	buf[size] = 0;
@@ -84,6 +87,20 @@ public:
 	} catch (MsaException* e) {
 	    //Success!
 	}
+    }
+
+    void testMulti() {
+	parseTest(GISeq, "ACGT  ATCGTA \t ATCGTA > ACGGAT");
+
+	GISeq* seq1 = new GISeq("ACGT > AGGT");
+	CPPUNIT_ASSERT_EQUAL(string("ACGT"), seq1->toString());
+
+	GISeq* seq2 = new GISeq(">Hello\nACGT > AGGT");
+	CPPUNIT_ASSERT_EQUAL(string("ACGT"), seq2->toString());
+	CPPUNIT_ASSERT_EQUAL(string("Hello"), seq2->identifier);
+
+	delete seq1;
+	delete seq2;
     }
 };
 

@@ -8,7 +8,20 @@
 
 template<class T>
 void MSA<T>::read(istream& is) {
-    //Do input reading stuff here.
+    double count = 0;
+    while (!is.eof()) {
+	ImmutableSequence<T>* seq = new ImmutableSequence<T>(is);
+	if (seq->length() > 0) {
+	    this->sequences.push_back(seq);
+	    count += seq->length();
+
+	    printf("Read %10u residues from %s\n", seq->length(),
+		   seq->identifier.substr(0, 50).c_str());
+	}
+    }
+
+    printf("-----------\nRead %u sequences of average length %lf\n",
+	   this->sequences.size(), count / ((double)this->sequences.size()));
 }
 
 template<class T>
@@ -390,7 +403,7 @@ int main(int argv, char** argc) {
 
     //Fill in defaults
     if (msa.K == 0)
-	msa.K = 10;
+	msa.K = 2;
 
     if (msa.scores == NULL)
 	msa.scores = new GenScores(.8, .3, 1, .1);

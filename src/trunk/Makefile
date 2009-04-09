@@ -45,7 +45,7 @@ clean:
 	g++ $(CXXFLAGS) -c $< -o $@
 
 jup:
-	rsync -av . jdd2127@compute:stochastic-msa/
+	rsync --exclude=Sequences -av . jdd2127@compute:stochastic-msa/
 
 
 ################

@@ -12,9 +12,9 @@ template<class M, class A, class B>
 double alignmentScore(M& m, A& a, B& b)
 {
 	//Visualize 'b' along the row.
-	double scores[b.length()+1];
-	int verticalGaps[b.length()+1];
-	int horizontalGaps[b.length()+1];
+	double* scores = new double[b.length()+1];
+	int* verticalGaps = new int[b.length()+1];
+	int* horizontalGaps = new int[b.length()+1];
 	double tempScore;
 
 	//Initialization;
@@ -82,6 +82,11 @@ double alignmentScore(M& m, A& a, B& b)
 		i++;
 	}
 	//cout << "Returning max score.\n";
+	
+	delete scores;
+	delete verticalGaps;
+	delete horizontalGaps;
+
 	return maxScore;
 }
 
