@@ -63,7 +63,9 @@ public:
     vector< pair<double, ImmutableSequence<T>* > > profiles;
 
 public:
-    MSA();
+    MSA() :
+    scores(NULL), scorer(NULL), selector(NULL), mutator(NULL),
+	terminator(NULL), generator(NULL), K(0) {}
     ~MSA();
 
     void read(istream& is);
@@ -78,6 +80,7 @@ private:
 };
 
 
+int msa_main(int argv, char** argc);
 
 
 #endif 	    /* !MSA_H_ */

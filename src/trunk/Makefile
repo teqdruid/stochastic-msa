@@ -4,39 +4,42 @@
 ## Made by John Demme
 ## Login   <teqdruidteqBook>
 ##
-## Started on  Sat Mar 28 14:45:01 2009 John Demme
-## Last update Sat Mar 28 14:45:01 2009 John Demme
 ## 
 ##############################
 # Complete this to make it ! #
 ##############################
-SRC	= storage.cpp pairwisealign.cpp 
+SRC	= storage.cpp pairwisealign.cpp msa.cpp
 TESTS   = tests/Set1.cpp tests/Alignment.cpp
-INCL  	= storage.h algo.h msa.h
+PROGS   = test.spp speedTest.cpp msa_main.cpp pairalign.cpp
+INCL  	= storage.h algo.h msa.h util.h
 ################
 # Optional add #
 ################
-CXXFLAGS = -I. -Wall -g -O3 -fopenmp
+CXXFLAGS = -I. -Wall -g -fopenmp -O3
 LDFLAGS  = -g -fopenmp
 
 #####################
 # Macro Definitions #
 #####################
 OBJS 	= $(SRC:.cpp=.o)
+PROGOBJS = $(PROGS:.cpp=.o)
 TESTOBJS =$(TESTS:.cpp=.o)
 RM 	= /bin/rm -f 	
 STRIP	= strip
 
-all:	test speedTest msa
+all:	test speedTest msa pairalign
 
 test: test.o $(OBJS) $(TESTOBJS) $(INCL)
-	g++ -o $@ test.o $(OBJS) $(TESTOBJS) $(LDFLAGS) -lcppunit
+	g++ -o $@ test.cpp $(OBJS) $(TESTOBJS) $(CXXFLAGS) $(LDFLAGS) -lcppunit
 
 speedTest: speedTest.o $(OBJS) $(INCL)
-	g++ -o $@ speedTest.o $(OBJS) $(LDFLAGS)
+	g++ -o $@ speedTest.cpp $(OBJS) $(LDFLAGS)  $(CXXFLAGS)
 
-msa: msa.o $(OBJS) $(INCL)
-	g++ -o $@ msa.o $(OBJS) $(LDFLAGS)
+msa: msa_main.o $(OBJS) $(INCL)
+	g++ -o $@ msa_main.cpp $(OBJS) $(LDFLAGS) $(CXXFLAGS)
+
+pairalign: pairalign.o $(OBJS) $(INCL)
+	g++ -o $@ pairalign.cpp $(OBJS) $(LDFLAGS)  $(CXXFLAGS)
 
 clean:
 	-$(RM) test *.o $(OBJS) $(TESTOBJS) *~
