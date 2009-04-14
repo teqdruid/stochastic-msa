@@ -2,9 +2,9 @@
 #include <fstream>
 #include <algorithm>
 #include <cmath>
-#include <sys/time.h>
 #include <msa.h>
 #include <algo.h>
+#include "util.h"
 
 template<class T>
 void MSA<T>::read(istream& is) {
@@ -94,12 +94,6 @@ pair<double, ImmutableSequence<T>* > MSA<T>::worst() {
 
     return *profiles.end();
 }
-
-template<class T>
-MSA<T>::MSA():
-    scores(NULL), scorer(NULL), selector(NULL), mutator(NULL),
-    terminator(NULL), generator(NULL), K(0)
-{}
 
 template<class T>
 MSA<T>::~MSA() {
@@ -305,70 +299,16 @@ public:
     }
 };
 
-/********
- *  Primary execution area
- ******/
 
-double get_runtime(void)
-{
-    struct timeval t;
-    gettimeofday(&t, NULL);
-    return ((double)t.tv_sec) + (((double)t.tv_usec) / 1e6);
-}
 
-class Timer {
-public:
-    double start, end;
-    string name;
-    Timer(string name) {
-	this->name = name;
-	start = get_runtime();
-    }
-
-    Timer() {
-	name = "";
-	start = get_runtime();
-    }
-
-    ~Timer() {
-	end = get_runtime();
-
-	printf("----%15s Timer (s):\t%lf\n", name.c_str(), (end-start));
-    }
-};
-
-static ImmutableSequence<GeneticSymbols>* longRndSeq(size_t size) {
-    GeneticSymbols* buffer = (GeneticSymbols*)malloc(size*sizeof(GeneticSymbols));
-    
-    for (size_t i=0; i<size; i++) {
-	int r = rand() % 4;
-	switch (r) {
-	case 0:
-	    buffer[i] = A;
-	    break;
-	case 1:
-	    buffer[i] = C;
-	    break;
-	case 2:
-	    buffer[i] = G;
-	    break;
-	case 3:
-	    buffer[i] = T;
-	    break;
-	}
-    }
-
-    return new ImmutableSequence<GeneticSymbols>(buffer, size);
-}
-
-int main(int argv, char** argc) {
+int msa_main(int argv, char** argc) {
     srand(time(NULL));
 
     MSA<GeneticSymbols> msa;
 
     string filename;
     for (int i=1; i<argv; ++i) {
-	string opt = argc[1];
+	string opt = argc[i];
 	if (opt[0] != '-') {
 	    filename = opt;
 	    continue;
@@ -382,7 +322,8 @@ int main(int argv, char** argc) {
 
     {Timer a("Read data");
 	ifstream inp(filename.c_str(), ios::in);
-	msa.read(inp);
+	if (inp.is_open())
+	    msa.read(inp);
 	
 	if (filename == "genRandom" && msa.sequences.size() == 0) {
 #pragma omp parallel for
@@ -409,6 +350,7 @@ int main(int argv, char** argc) {
 	msa.scores = new GenScores(.8, .3, 1, .1);
     if (msa.scorer == NULL)
 	msa.scorer = new StarScore<GeneticSymbols>();
+	//msa.scorer = new SampledStarScore<GeneticSymbols>();
     if (msa.selector == NULL)
 	//msa.selector = new HighSelector<GeneticSymbols>();
 	msa.selector = new StochasticSelector<GeneticSymbols>();
@@ -432,3 +374,6 @@ int main(int argv, char** argc) {
     
     return 0;
 }
+
+MSA<GeneticSymbols> __cpp_sux1;
+
