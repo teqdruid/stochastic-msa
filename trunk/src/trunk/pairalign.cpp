@@ -60,7 +60,8 @@ int main(int argv, char** argc) {
 	return 1;
     }
 
-    msa.scores = new GenScores(.8, .3, 1, .1);
+    msa.scores = new GenScores(1, -10, 15.0, 6.66);
+
     double score;
     {Timer a("Pairwise compute");
 	score = alignmentScore(*msa.scores, *msa.sequences[seqA], *msa.sequences[seqB]);

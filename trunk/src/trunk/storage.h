@@ -102,7 +102,8 @@ public:
 
     ~ImmutableSequence()
     {
-    	free(this->seq);
+	if (this->seq)
+	    free(this->seq);
     }
 
     ImmutableSequence* copy() {

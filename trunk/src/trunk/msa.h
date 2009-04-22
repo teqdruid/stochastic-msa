@@ -18,6 +18,7 @@ class Scorer {
 public:
     virtual bool rescore() = 0; //Do we have to re-score each round?
     virtual double score(ImmutableSequence<T>& profile, MSA<T>& msa) = 0;
+    virtual void print() { cout << "Using unknown scorer" << endl; }
 };
 
 template<class T>
@@ -25,6 +26,7 @@ class Selector {
 public:
     virtual vector< pair<double, ImmutableSequence<T>* > >
 	select(MSA<T>& msa, size_t k) = 0;
+    virtual void print() { cout << "Using unknown selector" << endl; }
 };
 
 template<class T>
@@ -32,18 +34,21 @@ class Mutator {
 public:
     virtual vector<ImmutableSequence<T>*>
 	mutate(MSA<T>& msa) = 0;
+    virtual void print() { cout << "Using unknown mutator" << endl; }
 };
 
 template<class T>
 class Terminator {
 public:
     virtual bool terminate(MSA<T>& msa) = 0;
+    virtual void print() { cout << "Using unknown terminator" << endl; }
 };
 
 template<class T>
 class Generator {
 public:
     virtual vector<ImmutableSequence<T>*> generateSet(MSA<T>& msa) = 0;
+    virtual void print() { cout << "Using unknown generator" << endl; }
 };
 
 template<class T>

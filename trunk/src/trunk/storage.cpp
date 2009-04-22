@@ -19,8 +19,7 @@ void parse(string& identifier, GeneticSymbols*& data,
 
 	for (size_t i=0; i<bfill; i++) {
 	    char c = buffer[i];
-	    if (c == ' ' || c == '\t' || c == '\n' || c == '\r'
-		|| c == 'N' || c == 'n')
+	    if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
 		continue; 
 
 	    if (size > cap) {
@@ -28,7 +27,22 @@ void parse(string& identifier, GeneticSymbols*& data,
 		data = (GeneticSymbols*)realloc(data, sizeof(GeneticSymbols) * cap);
 	    }
 
-	    data[size++] = fromChar(c);
+	    try {
+		data[size++] = fromChar(c);
+	    } catch (MsaException* e) {
+		cerr << "Error reading character: " << c << ". Skipping sequence "
+		     << identifier << endl;
+
+		while (!inp.eof() && inp.peek() != '>') {
+		    inp.get(buffer, 128, '>');
+		}
+
+		free(data);
+		identifier = "Error reading";
+		data = NULL;
+		size = 0;
+		return;
+	    }
 	}
 
 	if (inp.eof() || inp.peek() == '>')
