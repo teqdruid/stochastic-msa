@@ -478,7 +478,7 @@ int msa_main(int argv, char** argc) {
     if (msa.generator == NULL)
 	msa.generator = new RandomPicker<GeneticSymbols>();
     if (msa.terminator == NULL)
-	msa.terminator = new IterationsTerminator<GeneticSymbols>(500);
+	msa.terminator = new IterationsTerminator<GeneticSymbols>(25);
     if (msa.mutator == NULL)
 	msa.mutator = new TotallyRandomMutator<GeneticSymbols>(msa.K*a, m);
 

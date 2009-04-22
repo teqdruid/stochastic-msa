@@ -81,12 +81,8 @@ public:
 	parseTest(GISeq, "AAaatctggGGctACc");
 	parseTest(GISeq, "AcTg \n \tAATCct\r GGTC");
 
-	try {
-	    GISeq s("This will fail");
-	    CPPUNIT_ASSERT(false);
-	} catch (MsaException* e) {
-	    //Success!
-	}
+	GISeq s("This will fail");
+	CPPUNIT_ASSERT_EQUAL((size_t)0, s.length());
     }
 
     void testMulti() {
