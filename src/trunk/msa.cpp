@@ -2,6 +2,7 @@
 #include <fstream>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <msa.h>
 #include <algo.h>
 #include "util.h"
@@ -16,7 +17,9 @@ void MSA<T>::read(istream& is) {
 	    count += seq->length();
 
 	    printf("Read %10u residues from %s\n", seq->length(),
-		   seq->identifier.substr(0, 50).c_str());
+		   seq->identifier.c_str());
+	} else {
+	    delete seq;
 	}
     }
 
@@ -27,12 +30,16 @@ void MSA<T>::read(istream& is) {
 template<class T>
 void MSA<T>::execute() {
     {
+	cout << "Generating initial profile set..." << endl;
 	vector<ImmutableSequence<T>*> iSet = generator->generateSet(*this);
+	cout << "Scoring initial profiles..." << endl;
 	this->scoreAddProfiles(iSet);
     }
 
     while (!terminator->terminate(*this)) {
+	Timer a("Iteration");
 	if (this->scorer->rescore()) {
+	    cout << "\tRescoring profiles..." << endl;
 	    int size = this->profiles.size();
 
 #pragma omp parallel for
@@ -42,11 +49,14 @@ void MSA<T>::execute() {
 	    }
 	}
  
+	cout << "\tRunning successor function..." << endl;
 	vector<ImmutableSequence<T>*> newSet =
 	    this->mutator->mutate(*this);
 
+	cout << "\tScoring new profiles..." << endl;
 	this->scoreAddProfiles(newSet);
 
+	cout << "\tSelecting new profile set..." << endl;
 	vector< pair<double, ImmutableSequence<T>* > > selset = 
 	    this->selector->select(*this, this->K);
 
@@ -63,15 +73,21 @@ template<class T>
 void MSA<T>::scoreAddProfiles(vector<ImmutableSequence<T>*>& profs) {
     int size = profs.size();
 
+    cout << "\t\tScored: ";
+    cout.flush();
 #pragma omp parallel for
     for (int i=0; i<size; i++) {
 	pair<double, ImmutableSequence<T>*> p;
 	p.second = profs[i];
 	p.first = this->scorer->score(*p.second, *this);
+	cout << i << ":" << p.first << " ";
+	cout.flush();
 	
 #pragma omp critical
 	this->profiles.push_back(p);
     }
+
+    cout << endl;
 }
 
 //Used to sort profiles by their score
@@ -92,7 +108,7 @@ pair<double, ImmutableSequence<T>* > MSA<T>::worst() {
 
     sort(profiles.begin(), profiles.end(), pairCmp<T>);
 
-    return *profiles.end();
+    return *(profiles.end() - 1);
 }
 
 template<class T>
@@ -130,10 +146,12 @@ public:
 	    total += alignmentScore(*msa.scores, profile, *msa.sequences[i]);
 	}
 
-	return total / ((double)seqSize);;
+	return total / ((double)seqSize);
     }
 
     virtual bool rescore() { return false; }
+
+    virtual void print() { cout << "Using star scorer" << endl; }
 };
 
 template<class T>
@@ -163,6 +181,9 @@ public:
     }
 
     virtual bool rescore() { return true; }
+
+    virtual void print() { cout << "Using sampled star scorer, " 
+				<< samples << " samples" << endl; }
 };
 
 
@@ -174,6 +195,8 @@ public:
     select(MSA<T>& msa, size_t k) {
 	sort(msa.profiles.begin(), msa.profiles.end(), pairCmp<T>);
 
+	cout << "\t\tSelection set best: " << msa.profiles.begin()->first
+	     << ", worst: " << (msa.profiles.end()-1)->first << endl;
 	vector< pair<double, ImmutableSequence<T>* > > 
 	    ret(msa.profiles.begin(), msa.profiles.begin() + k);
 
@@ -183,6 +206,8 @@ public:
 
 	return ret;
     }
+
+    virtual void print() { cout << "Using high-k selector" << endl; }
 };
 
 //This guys just selects profiles stochastically
@@ -199,17 +224,19 @@ public:
 	vector< pair<double, ImmutableSequence<T>* > > ret;
 	sort(msa.profiles.begin(), msa.profiles.end(), pairCmp<T>);
 
+	double worst = (msa.profiles.end()-1)->first;
+
 	double totalScore = 0;
 	for (size_t i=0; i<msa.profiles.size(); i++)
-	    totalScore += msa.profiles[i].first;
+	    totalScore += msa.profiles[i].first - worst;
 	
 	for (size_t j=0; j<k; ++j) {
 	    double sel = random() % ((long int)round(totalScore));
 	    double count = 0.0;
 	    for (size_t i=0; i<msa.profiles.size(); i++) {
-		count += msa.profiles[i].first;
+		count += msa.profiles[i].first - worst;
 		if (count >= sel) {
-		    totalScore -= msa.profiles[i].first;
+		    totalScore -= msa.profiles[i].first - worst;
 		    ret.push_back(msa.profiles[i]);
 		    msa.profiles.erase(msa.profiles.begin() + i);
 		    break;
@@ -221,6 +248,8 @@ public:
 
 	return ret;
     }
+
+    virtual void print() { cout << "Using stochastic selector" << endl; }
 };
 
 template<class T>
@@ -237,6 +266,8 @@ public:
 
 	return ret;
     }
+
+    virtual void print() { cout << "Using random generator" << endl; }
 };
 
 template<class T>
@@ -247,19 +278,28 @@ public:
 
     IterationsTerminator(size_t max): count(0), max(max) {}
     virtual bool terminate(MSA<T>& msa) {
+	double bestScore = msa.best().first;
+	double worstScore = msa.worst().first;
 	cout << "Starting iteration: " << count 
 	     << " best score: " << msa.best().first
-	     << " range: " << (double)(msa.best().first - msa.worst().first)
+	     << " range: " << bestScore - worstScore
 	     << endl;
+	cout << "\tScores: ";
+	for (size_t i=0; i<msa.profiles.size(); i++) {
+	    cout << i << ":" << msa.profiles[i].first << " ";
+	}
+	cout << endl;
 	return count++ >= max;
     };
+
+    virtual void print() { cout << "Using iterations (" << max << ") terminator" << endl; }
 };
 
 template<class T>
 class TotallyRandomMutator : public Mutator<T> {
 public:
     long outputs;
-    long mutations;
+    double mutations;//Expected number of mutations
     TotallyRandomMutator(size_t outputs, size_t mutations) :
 	outputs(outputs), mutations(mutations) {
 	srand(time(NULL));
@@ -268,13 +308,16 @@ public:
     virtual vector<ImmutableSequence<T>*> mutate(MSA<T>& msa) {
 	vector<ImmutableSequence<T>*> ret;
 
+	size_t chanceEnd = (1.0 / mutations) * 1.6777216e7;
+
 #pragma omp parallel for shared(ret)
 	for (long i=0; i<outputs; ++i) {
 	    ImmutableSequence<T>* is =
 		msa.sequences[rand() % msa.sequences.size()];
 	    MutableSequence<T> m(*is);
 
-	    for (long j=0; j<mutations; j++) {
+	    //Allow no more than 10*expected mutations
+	    for (long j=0; j<(mutations*10); j++) {
 		size_t loc = rand() % is->length();
 		size_t insDel = rand() % 3;
 		GeneticSymbols t = (GeneticSymbols) (rand() & 3);
@@ -290,13 +333,24 @@ public:
 		    m.insert(loc, t);
 		    break;
 		} 
+
+		size_t brk = random() & 0xFFFFFF;
+		if (brk <= chanceEnd) {
+		    //cout << "Rnd end!! " << j << endl;
+		    break;
+		}
 	    }
 
+	    ImmutableSequence<T>* cm = m.commit();
+
 #pragma omp critical
-	    ret.push_back(m.commit());
+	    ret.push_back(cm);
 	}
 	return ret;
     }
+
+    virtual void print() { cout << "Using totally random mutator, outputs = "
+				<< outputs << ", mutations ~= " << mutations << endl; }
 };
 
 
@@ -311,7 +365,7 @@ int msa_main(int argv, char** argc) {
 	string opt = argc[i];
 	if (opt[0] != '-') {
 	    filename = opt;
-	    continue;
+	    break;
 	}
     }
 
@@ -342,24 +396,98 @@ int msa_main(int argv, char** argc) {
 	return 1;
     }
 
+    double a = 2.0, m = 300.0;
+
+    for (int i=1; i<argv; ++i) {
+	string opt = argc[i];
+
+	if (opt == "-k") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need value after -k" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    msa.K = atol(opt.c_str());
+	}
+
+	if (opt == "-a") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need value after -a" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    a = atof(opt.c_str());
+	}
+
+	if (opt == "-m") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need value after -m" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    m = atof(opt.c_str());
+	}
+
+	if (opt == "-starscore") {
+	    msa.scorer = new StarScore<GeneticSymbols>();
+	}
+
+	if (opt == "-samplescore") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need value after -samplescore" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    double r = atof(opt.c_str());
+	    msa.scorer = new SampledStarScore<GeneticSymbols>(r, msa);
+	}
+
+	if (opt == "-iter") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need value after -iter" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    long i = atol(opt.c_str());
+	    msa.terminator = new IterationsTerminator<GeneticSymbols>(i);
+	}
+
+	if (opt == "-highsel") {
+	    msa.selector = new HighSelector<GeneticSymbols>();
+	}
+
+	
+    }
+
     //Fill in defaults
     if (msa.K == 0)
-	msa.K = 2;
+	msa.K = 10;
 
     if (msa.scores == NULL)
-	msa.scores = new GenScores(.8, .3, 1, .1);
+	msa.scores = new GenScores(1, -.5, 5.0, 1.6);
+
     if (msa.scorer == NULL)
 	msa.scorer = new StarScore<GeneticSymbols>();
-	//msa.scorer = new SampledStarScore<GeneticSymbols>();
     if (msa.selector == NULL)
-	//msa.selector = new HighSelector<GeneticSymbols>();
-	msa.selector = new StochasticSelector<GeneticSymbols>();
+	msa.selector = new HighSelector<GeneticSymbols>();
     if (msa.generator == NULL)
 	msa.generator = new RandomPicker<GeneticSymbols>();
     if (msa.terminator == NULL)
-	msa.terminator = new IterationsTerminator<GeneticSymbols>(10);
+	msa.terminator = new IterationsTerminator<GeneticSymbols>(500);
     if (msa.mutator == NULL)
-	msa.mutator = new TotallyRandomMutator<GeneticSymbols>(25, 50);
+	msa.mutator = new TotallyRandomMutator<GeneticSymbols>(msa.K*a, m);
+
+    cout << "K = " << msa.K << endl;
+    msa.scorer->print();
+    msa.selector->print();
+    msa.generator->print();
+    msa.mutator->print();
+    msa.terminator->print();
 
     {Timer a("Execution");
 	msa.execute();
