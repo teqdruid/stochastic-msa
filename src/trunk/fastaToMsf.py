@@ -7,6 +7,8 @@ from cStringIO import StringIO
 
 # First, read in sequences
 
+outfile = sys.argv[1]
+
 seqs = dict()
 currSeq = StringIO()
 currSeqName = ""
@@ -44,13 +46,33 @@ while charsPerLine < 10:
 
 nameFormat = "%-" + str(maxNameLen + 2) + "s"
 
+out = file(outfile, "w")
+
+print >> out, "!!NA_MULTIPLE_ALIGNMENT 1.0"
+print >> out
+print >> out, outfile, ".."
+print >> out
+for (k, v) in seqs.items():
+    if (k != ""):
+        s = v.getvalue()
+        print >> out, ("Name: " + nameFormat + " Len: %d Check: %d Weight: 1.0") % (k, len(s), 0)
+    else:
+        seqs.pop(k)
+
+print >> out
+print >> out, "//"
+print >> out
+
 while has_more():
     for (k, v) in seqs.items():
-        sys.stdout.write(nameFormat % (k))
-        if v != None:
-            chars = v.read(charsPerLine)
-            sys.stdout.write(chars)
-            if len(chars) < charsPerLine:
-                seqs[k] = None
-        sys.stdout.write("\n")
-    sys.stdout.write("\n")
+        if (k != ""):
+            out.write(nameFormat % (k))
+            if v != None:
+                chars = v.read(charsPerLine)
+                out.write(chars)
+                if len(chars) < charsPerLine:
+                    seqs[k] = None
+            out.write("\n")
+    out.write("\n")
+
+out.close()

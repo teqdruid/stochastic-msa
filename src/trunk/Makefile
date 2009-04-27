@@ -27,7 +27,10 @@ TESTOBJS =$(TESTS:.cpp=.o)
 RM 	= /bin/rm -f 	
 STRIP	= strip
 
-all:	test speedTest msa pairalign
+all:	test speedTest msa pairalign bali_score
+
+bali_score:
+	gcc -o bali_score bali_score.c -O3
 
 test: test.o $(OBJS) $(TESTOBJS) $(INCL)
 	g++ -o $@ test.cpp $(OBJS) $(TESTOBJS) $(CXXFLAGS) $(LDFLAGS) -lcppunit
@@ -39,10 +42,10 @@ msa: msa_main.o $(OBJS) $(INCL)
 	g++ -o $@ msa_main.cpp $(OBJS) $(LDFLAGS) $(CXXFLAGS)
 
 pairalign: pairalign.o $(OBJS) $(INCL)
-	g++ -o $@ pairalign.cpp $(OBJS) $(LDFLAGS)  $(CXXFLAGS)
+	g++ -o $@ pairalign.cpp $(OBJS) $(LDFLAGS) $(CXXFLAGS)
 
 clean:
-	-$(RM) test *.o $(OBJS) $(TESTOBJS) *~
+	-$(RM) test *.o $(OBJS) $(TESTOBJS) bali_score *~
 
 .cpp.o:
 	g++ $(CXXFLAGS) -c $< -o $@
