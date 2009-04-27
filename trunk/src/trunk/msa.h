@@ -11,6 +11,8 @@
 #include <set>
 #include <vector>
 
+#define Ktup 4
+
 template<class T> class MSA;
 
 template<class T>
@@ -63,7 +65,9 @@ public:
     Generator<T>* generator;
 
     size_t K;
-    
+
+    map<T[Ktup], size_t> seqIndex;
+
     vector< ImmutableSequence<T>* > sequences;
     vector< pair<double, ImmutableSequence<T>* > > profiles;
 
@@ -74,7 +78,9 @@ public:
     ~MSA();
 
     void read(istream& is);
+    void index();
     void execute();
+    void output(ostream& os, ImmutableSequence<T>* profile);
 
     pair<double, ImmutableSequence<T>* > best();
     pair<double, ImmutableSequence<T>* > worst();

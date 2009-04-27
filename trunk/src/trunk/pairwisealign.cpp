@@ -71,16 +71,7 @@ double alignmentScore(M& m, A& a, B& b)
 	}
 
 	//Find the maximum score.
-	size_t i = 1;
-	double maxScore = scores[0];
-	while(i < b.length()+1)
-	{
-		if(scores[i] > maxScore)
-		{
-			maxScore = scores[i];
-		}
-		i++;
-	}
+	double maxScore = scores[b.length()];
 	//cout << "Returning max score.\n";
 	
 	delete scores;
@@ -154,8 +145,17 @@ const char*** getAlignment(M& m, A& a, B& b)
 	return directions;
 }
 
+template<class A>
+void freeAlignment(const char*** directions, A& a) {
+    for(size_t i = 0; i < a.length() + 1; i++)
+    {
+	delete directions[i];
+    }
+    delete directions;
+}
+
 template<class A, class B>
-void reconstructAlignment(A& a, B& b, const char*** directions)
+void reconstructAlignment(ostream& os, A& a, B& b, const char*** directions)
 {
 	const char* C = "A";
 	string aAlignment = "";
@@ -194,10 +194,15 @@ void reconstructAlignment(A& a, B& b, const char*** directions)
 			C = "S";
 		}
 	}
-	cout << aAlignment << "\n";
-	cout << bAlignment << "\n";
+	//os << aAlignment << "\n";
+	os << bAlignment << "\n";
 }
 
 
 template double alignmentScore<GenScores, GISeq, GISeq>(GenScores&, GISeq&, GISeq&);
 
+template const char*** getAlignment<GenScores, GISeq, GISeq>(GenScores&, GISeq&, GISeq&);
+
+template void reconstructAlignment<GISeq, GISeq>(ostream&, GISeq&, GISeq&, const char***);
+
+template void freeAlignment<GISeq>(const char*** directions, GISeq& a);
