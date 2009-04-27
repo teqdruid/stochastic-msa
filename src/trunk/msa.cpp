@@ -70,6 +70,11 @@ void MSA<T>::execute() {
 }
 
 template<class T>
+void MSA<T>::index() {
+    
+}
+
+template<class T>
 void MSA<T>::scoreAddProfiles(vector<ImmutableSequence<T>*>& profs) {
     int size = profs.size();
 
@@ -129,6 +134,19 @@ MSA<T>::~MSA() {
     delete mutator;
     delete terminator;
     delete generator;
+}
+
+template<class T>
+void MSA<T>::output(ostream& os, ImmutableSequence<T>* profile) {
+    for (size_t i=0; i<sequences.size(); i++) {
+	ImmutableSequence<T>* seq = sequences[i];
+	cout << "Writing results for " << seq->identifier << endl;
+	os << ">" << seq->identifier << endl;
+	const char*** alignment = getAlignment(*this->scores, *profile, *seq);
+	reconstructAlignment(os, *profile, *seq, alignment);
+	os << endl << endl;
+	freeAlignment(alignment, *profile);
+    }
 }
 
 /*************
@@ -267,6 +285,29 @@ public:
 	return ret;
     }
 
+    virtual void print() { cout << "Using random picking generator" << endl; }
+};
+
+template<class T>
+class RandomGenerator: public Generator<T> {
+public:
+    RandomGenerator() { srand(time(NULL)); }
+    virtual vector<ImmutableSequence<T>*> generateSet(MSA<T>& msa) {
+	vector<ImmutableSequence<T>*> ret;
+
+	double total = 0.0;
+	for (size_t i=0; i<msa.sequences.size(); i++) {
+	    total += msa.sequences[i]->length();
+	}
+	double avg = total / msa.sequences.size();
+
+	for (size_t i=0; i<msa.K; ++i) {
+	    ret.push_back(longRndSeq(avg));
+	}
+
+	return ret;
+    }
+
     virtual void print() { cout << "Using random generator" << endl; }
 };
 
@@ -360,7 +401,7 @@ int msa_main(int argv, char** argc) {
 
     MSA<GeneticSymbols> msa;
 
-    string filename;
+    string filename = "", outputFile = "";
     for (int i=1; i<argv; ++i) {
 	string opt = argc[i];
 	if (opt[0] != '-') {
@@ -394,6 +435,10 @@ int msa_main(int argv, char** argc) {
 	cerr << "Error: only found " <<
 	    msa.sequences.size() << " sequences in file." << endl;
 	return 1;
+    }
+
+    {Timer a("Indexing data");
+	msa.index();
     }
 
     double a = 2.0, m = 300.0;
@@ -461,7 +506,19 @@ int msa_main(int argv, char** argc) {
 	    msa.selector = new HighSelector<GeneticSymbols>();
 	}
 
-	
+	if (opt == "-randgen") {
+	    msa.generator = new RandomGenerator<GeneticSymbols>();
+	}
+
+	if (opt == "-out") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need value after -out" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    outputFile = opt;
+	}
     }
 
     //Fill in defaults
@@ -498,6 +555,15 @@ int msa_main(int argv, char** argc) {
     {Timer a("Score compute");
 	cout << "Star score of best alignment found: " << 
 	    ss.score(*msa.best().second, msa) << endl;
+    }
+
+    if (outputFile != "") {
+	Timer a("Final alignment");
+	cout << "Doing final alignment and writing data to "
+	     << outputFile << endl;
+
+	ofstream outp(outputFile.c_str(), ios::out);
+	msa.output(outp, msa.best().second);
     }
     
     return 0;
