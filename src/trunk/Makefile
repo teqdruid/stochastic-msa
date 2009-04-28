@@ -15,7 +15,7 @@ INCL  	= storage.h algo.h msa.h util.h
 ################
 # Optional add #
 ################
-CXXFLAGS = -I. -Wall -g -fopenmp -O3 -msse3 -mssse3 -finline --save-temps
+CXXFLAGS = -I. -Wall -g -fopenmp -O3 -msse3 -finline --save-temps
 LDFLAGS  = -fopenmp -g -O3
 
 #####################
