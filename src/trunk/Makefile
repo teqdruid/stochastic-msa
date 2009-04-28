@@ -16,7 +16,7 @@ INCL  	= storage.h algo.h msa.h util.h
 # Optional add #
 ################
 CXXFLAGS = -I. -Wall -g -fopenmp -O3
-LDFLAGS  = -g -fopenmp
+LDFLAGS  = -g -fopenmp -O3
 
 #####################
 # Macro Definitions #
@@ -52,6 +52,7 @@ clean:
 
 jup:
 	rsync --exclude=Sequences -av . jdd2127@compute:stochastic-msa/
+	rsync --exclude=Sequences -av jdd2127@compute:stochastic-msa/ComputeOutputs .
 
 
 ################

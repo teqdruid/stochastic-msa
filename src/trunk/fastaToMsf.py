@@ -23,7 +23,9 @@ while line != "":
     if line[0] == ">":
         flush()
         currSeq = StringIO()
-        currSeqName = line[1:(line[1:].find(' '))+1]
+        currSeqName = line[1:].rstrip()
+        if line.find(' ') != -1:
+            currSeqName = line[1:(line[1:].find(' '))+1]
         if len(currSeqName) > maxNameLen:
             maxNameLen = len(currSeqName)
     else:
