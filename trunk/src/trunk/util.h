@@ -71,4 +71,22 @@ public:
     }
 };
 
+template<class A>
+size_t stochasticSelect(A* arr, size_t len) {
+    A total = 0;
+    A cumArr[len];
+    for (size_t i=0; i<len; ++i) {
+	total += arr[i];
+	cumArr[i] = total;
+    }
+
+    A sel = random() % ((long long)total);
+    for (size_t i=0; i<len; ++i) {
+	if (cumArr[i] > sel)
+	    return i;
+    }
+
+    return len - 1;
+}
+
 #endif 	    /* !UTIL_H_ */

@@ -69,7 +69,7 @@ int main(int argv, char** argc) {
 	return 1;
     }
 
-    msa.scores = new GenScores(1, -.5, 15.0, 6.6);
+    msa.scores = new GenScores(1, -5, 5.0, 1, 25, 5);
 
     double score;
     {Timer a("Pairwise score compute");
