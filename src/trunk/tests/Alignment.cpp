@@ -24,7 +24,7 @@ public:
     }
 
     void scoreMatrix() {
-	GenScores sm(.8, .3, 1, .1);
+	GenScores sm(.8, .3, 1, .1, 5, .5);
 	CPPUNIT_ASSERT_EQUAL(0.8, sm.score(A, A));
 	CPPUNIT_ASSERT_EQUAL(0.3, sm.score(A, T));
     }
@@ -32,7 +32,7 @@ public:
 #define FEQ(A, B, EP) ((A < (B + EP)) && (A > (B - EP)))
 
     void identAlignment() {
-	GenScores sm(.8, .3, 1, .1);
+	GenScores sm(.8, .3, 1, .1, 5, .5);
 	
 	GISeq seq("AACATAGAACTTAGCTTAGCTATCGCGGTTTTACGATTCGATCGATTCGAT");
 

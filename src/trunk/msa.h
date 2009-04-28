@@ -19,7 +19,9 @@ template<class T>
 class Scorer {
 public:
     virtual bool rescore() = 0; //Do we have to re-score each round?
-    virtual double score(ImmutableSequence<T>& profile, MSA<T>& msa) = 0;
+    virtual double score(ImmutableSequence<T>& profile,
+			 MSA<T>& msa,
+			 SiteInformation* si) = 0;
     virtual void print() { cout << "Using unknown scorer" << endl; }
 };
 
@@ -65,11 +67,13 @@ public:
     Generator<T>* generator;
 
     size_t K;
+    double avgSize;
 
     map<T[Ktup], size_t> seqIndex;
 
     vector< ImmutableSequence<T>* > sequences;
     vector< pair<double, ImmutableSequence<T>* > > profiles;
+    map<ImmutableSequence<T>*, SiteInformation*> profileSiteInfo;
 
 public:
     MSA() :

@@ -79,6 +79,24 @@ void parse(string& identifier, GeneticSymbols*& data,
 template <class T>
 class MutableSequence;
 
+class SiteInformation {
+public:
+    size_t* subst;
+    size_t* ins;
+    size_t* dels;
+
+    SiteInformation(size_t len) {
+	subst = new size_t[len*3];
+	ins   = &subst[len];
+	dels  = &ins[len];
+	memset(subst, 0, sizeof(size_t)*len*3);
+    }
+
+    ~SiteInformation() {
+	delete[] subst;
+    }
+};
+
 template <class T>
 class ImmutableSequence
 {
@@ -255,12 +273,14 @@ template <class T, int S>
 class ScoringMatrix {
 public:
     double matrix[S*S];
-    double alpha;
-    double beta;
+    double hAlpha, hBeta, vAlpha, vBeta;
 
     ScoringMatrix() {}
 
-    ScoringMatrix(double match, double nonmatch, double alpha, double beta)
+    ScoringMatrix(double match, double nonmatch,
+		  double hAlpha, double hBeta,
+		  double vAlpha, double vBeta) :
+    hAlpha(hAlpha), hBeta(hBeta), vAlpha(vAlpha), vBeta(vBeta)
     {
     	for (size_t i = 0; i<(S*S); i++)
     	{
@@ -271,15 +291,6 @@ public:
     	{
     		matrix[i*S + i] = match;
     	}
-
-	this->alpha = alpha;
-	this->beta = beta;
-    }
-
-    ScoringMatrix(double alpha, double beta)
-    {
-    	this->alpha = alpha;
-    	this->beta = beta;
     }
 
     double score(T a, T b)
@@ -292,13 +303,22 @@ public:
     	return matrix[a*S + b];
     }
 
-    double affineScore(int gapSize)
+    double hAffineScore(int gapSize)
     {
     	if(gapSize < 1)
     	{
     		return 0;
     	}
-    	return -1 * (alpha + beta*(gapSize-1));
+    	return -1 * (hAlpha + hBeta*(gapSize-1));
+    }
+
+    double vAffineScore(int gapSize)
+    {
+    	if(gapSize < 1)
+    	{
+    		return 0;
+    	}
+    	return -1 * (vAlpha + vBeta*(gapSize-1));
     }
 };
 
