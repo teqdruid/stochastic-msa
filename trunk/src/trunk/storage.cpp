@@ -22,7 +22,7 @@ void parse(string& identifier, GeneticSymbols*& data,
 	    if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
 		continue; 
 
-	    if (size > cap) {
+	    if (size >= cap) {
 		cap *= 2;
 		data = (GeneticSymbols*)realloc(data, sizeof(GeneticSymbols) * cap);
 	    }
@@ -41,6 +41,8 @@ void parse(string& identifier, GeneticSymbols*& data,
 		identifier = "Error reading";
 		data = NULL;
 		size = 0;
+
+		delete e;
 		return;
 	    }
 	}

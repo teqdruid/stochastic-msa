@@ -37,10 +37,11 @@ typedef enum
     A = 0,
     C,
     G,
-    T
+    T,
+    Dash
 } GeneticSymbols;
 
-static char gs2cLookup[] = {'A', 'C', 'G', 'T'};
+static char gs2cLookup[] = {'A', 'C', 'G', 'T', '-'};
 
 __inline__ char toChar(GeneticSymbols gs)
 {
@@ -63,6 +64,10 @@ __inline__ GeneticSymbols fromChar(char c)
     case 'T':
     case 't':
     	return T;
+    case '-':
+    case '.':
+    case '~':
+	return Dash;
     default:
     	throw new MsaException("Invalid GS character");
     }
@@ -114,7 +119,12 @@ public:
 
     T at(size_t idx)
     {
-    	assert(idx <= seqSize);
+    	assert(idx < seqSize);
+    	return seq[idx];
+    }
+
+    T operator[](size_t idx) {
+	assert(idx < seqSize);
     	return seq[idx];
     }
 
@@ -139,6 +149,16 @@ public:
     	if (o.seqSize != seqSize)
     		return false;
     	return (memcmp(o.seq, seq, seqSize) == 0);
+    }
+
+    void write(ostream& os) {
+	os << ">" << identifier;
+	for (size_t i=0; i<seqSize; i++) {
+	    if ((i % 70) == 0)
+		os << endl;
+	    os << toChar(seq[i]);
+	}
+	os << endl;
     }
 };
 
@@ -263,6 +283,11 @@ public:
     }
 
     double score(T a, T b)
+    {
+    	return matrix[a*S + b];
+    }
+
+    double operator()(T a, T b)
     {
     	return matrix[a*S + b];
     }

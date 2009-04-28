@@ -142,10 +142,14 @@ void MSA<T>::output(ostream& os, ImmutableSequence<T>* profile) {
 	ImmutableSequence<T>* seq = sequences[i];
 	cout << "Writing results for " << seq->identifier << endl;
 	os << ">" << seq->identifier << endl;
-	const char*** alignment = getAlignment(*this->scores, *profile, *seq);
-	reconstructAlignment(os, *profile, *seq, alignment);
+	vector<T>* align = nwAlignment(*this->scores, *profile, *seq);
+	for (size_t i=0; i<align->size(); ++i) {
+	    if ((i % 70) == 0)
+		os << endl;
+	    os << toChar(align->at(i));
+	}
 	os << endl << endl;
-	freeAlignment(alignment, *profile);
+	delete align;
     }
 }
 
@@ -401,7 +405,7 @@ int msa_main(int argv, char** argc) {
 
     MSA<GeneticSymbols> msa;
 
-    string filename = "", outputFile = "";
+    string filename = "", outputFile = "", profOutputFile = "";
     for (int i=1; i<argv; ++i) {
 	string opt = argc[i];
 	if (opt[0] != '-') {
@@ -519,6 +523,16 @@ int msa_main(int argv, char** argc) {
 	    opt = argc[i];
 	    outputFile = opt;
 	}
+
+	if (opt == "-pout") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need value after -pout" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    profOutputFile = opt;
+	}	
     }
 
     //Fill in defaults
@@ -555,6 +569,22 @@ int msa_main(int argv, char** argc) {
     {Timer a("Score compute");
 	cout << "Star score of best alignment found: " << 
 	    ss.score(*msa.best().second, msa) << endl;
+    }
+
+    if (profOutputFile != "") {
+	msa.best(); //Sort the entries
+	ofstream outp(profOutputFile.c_str(), ios::out);
+
+	for (size_t i=0; i<msa.profiles.size(); ++i) {
+	    char buffer[128];
+	    GISeq* p = msa.profiles[i].second;
+
+	    snprintf(buffer, 128, "Profile %d scoring %lf",
+		     i, msa.profiles[i].first);
+
+	    p->identifier = buffer;
+	    p->write(outp);
+	}
     }
 
     if (outputFile != "") {

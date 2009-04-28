@@ -11,7 +11,7 @@ int main(int argv, char** argc) {
 
     MSA<GeneticSymbols> msa;
 
-    string filename = "";
+    string filename = "", outFilename = "";
     long seqA = -1, seqB = -1;
     for (int i=1; i<argv; ++i) {
 	string opt = argc[i];
@@ -23,6 +23,15 @@ int main(int argv, char** argc) {
 	    else if (seqB == -1)
 		seqB = atol(opt.c_str());
 	    continue;
+	}
+
+	if (opt == "-out") {
+	    ++i;
+	    if (i >= argv) {
+		cerr << "Need argument after -out" << endl;
+		return 1;
+	    }
+	    outFilename = argc[i];
 	}
     }
 
@@ -60,12 +69,39 @@ int main(int argv, char** argc) {
 	return 1;
     }
 
-    msa.scores = new GenScores(1, -10, 15.0, 6.66);
+    msa.scores = new GenScores(1, -.5, 15.0, 6.6);
 
     double score;
-    {Timer a("Pairwise compute");
+    {Timer a("Pairwise score compute");
 	score = alignmentScore(*msa.scores, *msa.sequences[seqA], *msa.sequences[seqB]);
     }
+
+    if (outFilename != "") {
+	ofstream outp(outFilename.c_str(), ios::out);
+	msa.sequences[seqA]->write(outp);
+	outp << endl;
+	msa.sequences[seqB]->write(outp);
+	outp << endl;
+
+	Timer a("Pairwise compute");
+//	const char*** aln = 
+//    getAlignment(*msa.scores, *msa.sequences[seqA], *msa.sequences[seqB]);
+	
+	outp << ">Aligned";
+
+	vector<GeneticSymbols>* align =
+	    nwAlignment(*msa.scores, *msa.sequences[seqA], *msa.sequences[seqB]);
+	for (size_t i=0; i<align->size(); ++i) {
+	    if ((i % 70) == 0)
+		outp << endl;
+	    outp << toChar(align->at(i));
+	}
+	outp << endl;
+
+	delete align;
+//	reconstructAlignment(outp, *msa.sequences[seqA], *msa.sequences[seqB], aln);
+    }
+    
 
     cout << "Pairwise alignment score: " << score << endl;
     
