@@ -73,7 +73,8 @@ int main(int argv, char** argc) {
 
     double score;
     {Timer a("Pairwise score compute");
-	score = alignmentScore(*msa.scores, *msa.sequences[seqA], *msa.sequences[seqB]);
+	for (size_t i=0; i<10; i++)
+	    score = alignmentScore(*msa.scores, *msa.sequences[seqA], *msa.sequences[seqB]);
     }
 
     if (outFilename != "") {

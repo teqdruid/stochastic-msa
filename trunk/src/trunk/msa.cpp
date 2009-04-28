@@ -427,6 +427,8 @@ public:
     virtual vector<ImmutableSequence<T>*> mutate(MSA<T>& msa) {
 	vector<ImmutableSequence<T>*> ret;
 
+	double muts = 0.0;
+
 #pragma omp parallel for shared(ret)
 	for (long i=0; i<outputs; ++i) {
 	    ImmutableSequence<T>* is =
@@ -473,8 +475,13 @@ public:
 	    ImmutableSequence<T>* cm = m.commit();
 
 #pragma omp critical
-	    ret.push_back(cm);
+	    {
+		ret.push_back(cm);
+		muts += mut;
+	    }
 	}
+
+	cout << "Average mutations per profile: " << muts / outputs << endl;
 	return ret;
     }
 
@@ -630,7 +637,7 @@ int msa_main(int argv, char** argc) {
 	msa.K = 10;
 
     if (msa.scores == NULL)
-	msa.scores = new GenScores(1, -.5, 5.0, 1.6, 25, 5);
+	msa.scores = new GenScores(1, -.5, 5.0, 1.6, 250, 50);
 
     if (msa.scorer == NULL)
 	msa.scorer = new StarScore<GeneticSymbols>();
