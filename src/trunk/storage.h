@@ -85,11 +85,13 @@ public:
     size_t* ins;
     size_t* dels;
 
-    SiteInformation(size_t len) {
+    SiteInformation(size_t len, size_t init) {
 	subst = new size_t[len*3];
 	ins   = &subst[len];
 	dels  = &ins[len];
-	memset(subst, 0, sizeof(size_t)*len*3);
+	for (size_t i=0; i<(len*3); i++) {
+	    subst[i] = init;
+	}
     }
 
     ~SiteInformation() {

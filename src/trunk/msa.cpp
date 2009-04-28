@@ -7,6 +7,8 @@
 #include <algo.h>
 #include "util.h"
 
+static size_t SIZE_DIV = 5;
+
 template<class T>
 void MSA<T>::read(istream& is) {
     double count = 0;
@@ -54,7 +56,9 @@ void MSA<T>::execute() {
 		    profileSiteInfo.erase(p.second);
 		}
 
-		SiteInformation* si = new SiteInformation(p.second->length());
+		SiteInformation* si = 
+		    new SiteInformation(p.second->length(),
+					sequences.size() / SIZE_DIV);
 		p.first = this->scorer->score(*p.second, *this, si);
 
 #pragma omp critical
@@ -102,13 +106,15 @@ void MSA<T>::scoreAddProfiles(vector<ImmutableSequence<T>*>& profs) {
 	pair<double, ImmutableSequence<T>*> p;
 	p.second = profs[i];
 
-	SiteInformation* si = new SiteInformation(p.second->length());
+	SiteInformation* si =
+	    new SiteInformation(p.second->length(),
+				sequences.size() / SIZE_DIV);
 	p.first = this->scorer->score(*p.second, *this, si);
 
 #pragma omp critical
 	profileSiteInfo[p.second] = si;
 
-	cout << i << ":" << p.first << " ";
+	cout << p.second->length() << ":" << p.first << " ";
 	cout.flush();
 	
 #pragma omp critical
@@ -350,16 +356,59 @@ public:
 	cout << "Starting iteration: " << count 
 	     << " best score: " << msa.best().first
 	     << " range: " << bestScore - worstScore
+	     << ".  Sizeof(best): " << msa.best().second->length()
 	     << endl;
 	cout << "\tScores: ";
 	for (size_t i=0; i<msa.profiles.size(); i++) {
-	    cout << i << ":" << msa.profiles[i].first << " ";
+	    cout << msa.profiles[i].second->length() << ":" 
+		 << msa.profiles[i].first << " ";
 	}
 	cout << endl;
 	return count++ >= max;
     };
 
     virtual void print() { cout << "Using iterations (" << max << ") terminator" << endl; }
+};
+
+template<class T>
+class ProgressTerminator: public Terminator<T> {
+public:
+    double percent;
+    double lastBest;
+    size_t max;
+    size_t count;
+    size_t bigCount;
+
+    ProgressTerminator(size_t max, double percent):
+	percent(percent), lastBest(-9999999.9), max(max), count(0), bigCount(0) {}
+    virtual bool terminate(MSA<T>& msa) {
+	double bestScore = msa.best().first;
+	double worstScore = msa.worst().first;
+	cout << "Starting iteration: " << bigCount++
+	     << " best score: " << msa.best().first
+	     << " range: " << bestScore - worstScore
+	     << ".  Sizeof(best): " << msa.best().second->length()
+	     << endl;
+	cout << "\tScores: ";
+	for (size_t i=0; i<msa.profiles.size(); i++) {
+	    cout << msa.profiles[i].second->length() << ":" 
+		 << msa.profiles[i].first << " ";
+	}
+	cout << endl;
+
+	double diff = bestScore - lastBest;
+	diff = diff / lastBest;
+	if (diff < percent)
+	    count++;
+	else
+	    count = 0;
+	
+	lastBest = bestScore;
+	return count >= max;
+    };
+
+    virtual void print() { cout << "Using progress (" << max << "x, "
+				<< percent*100 << "%) terminator" << endl; }
 };
 
 template<class T>
@@ -463,8 +512,8 @@ public:
 
 	    for (long j=0; j<mut; j++) {
 		size_t aLoc = stochasticSelect(si->subst, iLen);
-		size_t insDel = aLoc / 3;
-		size_t loc = aLoc - (insDel * 3);
+		size_t loc = aLoc / 3;
+		size_t insDel = aLoc - (loc * 3);
 
 		GeneticSymbols t = (GeneticSymbols) (rand() & 3);
 
@@ -591,6 +640,7 @@ int msa_main(int argv, char** argc) {
 	    }
 	    opt = argc[i];
 	    double r = atof(opt.c_str());
+	    SIZE_DIV = SIZE_DIV / r;
 	    msa.scorer = new SampledStarScore<GeneticSymbols>(r, msa);
 	}
 
@@ -604,6 +654,27 @@ int msa_main(int argv, char** argc) {
 	    long i = atol(opt.c_str());
 	    msa.terminator = new IterationsTerminator<GeneticSymbols>(i);
 	}
+
+	if (opt == "-prog") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need 2 values after -prog" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    long max = atol(opt.c_str());
+
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need 2 values after -prog" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    double p = atof(opt.c_str());
+
+	    msa.terminator = new ProgressTerminator<GeneticSymbols>(max, p/100);
+	}
+
 
 	if (opt == "-highsel") {
 	    msa.selector = new HighSelector<GeneticSymbols>();
@@ -656,11 +727,13 @@ int msa_main(int argv, char** argc) {
     if (msa.generator == NULL)
 	msa.generator = new RandomPicker<GeneticSymbols>();
     if (msa.terminator == NULL)
-	msa.terminator = new IterationsTerminator<GeneticSymbols>(25);
+	//msa.terminator = new IterationsTerminator<GeneticSymbols>(25);
+	msa.terminator = new ProgressTerminator<GeneticSymbols>(3, .005);
     if (msa.mutator == NULL)
 	msa.mutator = new StochasticMutator<GeneticSymbols>(msa.K*a, m);
 
     cout << "K = " << msa.K << endl;
+    cout << "Size_Div = " << SIZE_DIV << endl;
     msa.scorer->print();
     msa.selector->print();
     msa.generator->print();

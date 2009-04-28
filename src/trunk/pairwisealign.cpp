@@ -2,6 +2,7 @@
 #include "storage.h"
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 
 template<class T>
 class Matrix {
@@ -80,6 +81,10 @@ double alignmentScore(M& S, A& a, B& b, SiteInformation* si = NULL)
 
     if (si != NULL) {
 
+	size_t delMul = round(S.vAlpha/S.hAlpha);
+	if (delMul == 0)
+	    delMul = 1;
+
 	size_t i = a.length();
 	size_t j = b.length();
 	
@@ -94,7 +99,7 @@ double alignmentScore(M& S, A& a, B& b, SiteInformation* si = NULL)
 		--j;
 		break;
 	    case 'H':
-		si->dels[i-1]++;
+		si->dels[i-1] += delMul;
 		--i;
 		break;
 	    case 'V':
@@ -108,7 +113,7 @@ double alignmentScore(M& S, A& a, B& b, SiteInformation* si = NULL)
     
 	while (i > 0)
 	{
-	    si->dels[i-1]++;
+	    si->dels[i-1] += delMul;
 	    --i;
 	}
 
