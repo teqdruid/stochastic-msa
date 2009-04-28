@@ -48,6 +48,7 @@ void MSA<T>::execute() {
 	    for (int i=0; i<size; i++) {
 		pair<double, ImmutableSequence<T>*>& p = this->profiles[i];
 
+#pragma omp critical
 		if (profileSiteInfo.count(p.second)) {
 		    delete profileSiteInfo[p.second];
 		    profileSiteInfo.erase(p.second);
@@ -55,6 +56,8 @@ void MSA<T>::execute() {
 
 		SiteInformation* si = new SiteInformation(p.second->length());
 		p.first = this->scorer->score(*p.second, *this, si);
+
+#pragma omp critical
 		profileSiteInfo[p.second] = si;
 	    }
 	}
@@ -93,6 +96,7 @@ void MSA<T>::scoreAddProfiles(vector<ImmutableSequence<T>*>& profs) {
 
     cout << "\t\tScored: ";
     cout.flush();
+
 #pragma omp parallel for
     for (int i=0; i<size; i++) {
 	pair<double, ImmutableSequence<T>*> p;
@@ -100,6 +104,8 @@ void MSA<T>::scoreAddProfiles(vector<ImmutableSequence<T>*>& profs) {
 
 	SiteInformation* si = new SiteInformation(p.second->length());
 	p.first = this->scorer->score(*p.second, *this, si);
+
+#pragma omp critical
 	profileSiteInfo[p.second] = si;
 
 	cout << i << ":" << p.first << " ";
@@ -435,8 +441,12 @@ public:
 		msa.profiles[rand() % msa.profiles.size()].second;
 	    MutableSequence<T> m(*is);
 
-	    assert(msa.profileSiteInfo.count(is) > 0);
-	    SiteInformation* si = msa.profileSiteInfo[is];
+	    SiteInformation* si;
+#pragma omp critical
+	    {
+		assert(msa.profileSiteInfo.count(is) > 0);
+		si = msa.profileSiteInfo[is];
+	    }
 
 	    size_t iLen = is->length() * 3;
 	    size_t total = 0;
@@ -481,7 +491,7 @@ public:
 	    }
 	}
 
-	cout << "Average mutations per profile: " << muts / outputs << endl;
+	cout << "\t\tAverage mutations per profile: " << muts / outputs << endl;
 	return ret;
     }
 
