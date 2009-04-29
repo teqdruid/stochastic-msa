@@ -105,12 +105,13 @@ class ImmutableSequence
     friend class MutableSequence<T>;
     T* seq;
     size_t seqSize;
+    size_t hashVal;
 
 public:
     string identifier;
 
     ImmutableSequence(T* seq, size_t size)
-	: seq(seq), seqSize(size) {}
+	: seq(seq), seqSize(size), hashVal(0) {}
     
     ImmutableSequence(istream& s)
     {
@@ -179,6 +180,22 @@ public:
 	    os << toChar(seq[i]);
 	}
 	os << endl;
+    }
+
+    size_t hash() {
+	if (hashVal == 0)
+	    for (size_t i=0; i<(seqSize-4); i += 4) {
+		size_t nv = *((size_t*)&seq[i]);
+		hashVal ^= nv;
+	    }
+	return hashVal;
+    }
+
+    bool isEqual(ImmutableSequence& o) {
+	if (o.seqSize != seqSize)
+	    return false;
+
+	return memcmp(seq, o.seq, seqSize) == 1;
     }
 };
 

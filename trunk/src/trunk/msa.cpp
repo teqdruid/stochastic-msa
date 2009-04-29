@@ -32,61 +32,123 @@ void MSA<T>::read(istream& is) {
 }
 
 template<class T>
+static void eliminateDuplicates(vector<ImmutableSequence<T>*>& vec) {
+    set<size_t> dupes;
+
+    for (size_t i=0; i<vec.size(); ++i) {
+	ImmutableSequence<T>* a = vec[i];
+
+	if (dupes.find(i) != dupes.end())
+	    continue;
+
+	for (size_t j=i+1; j<vec.size(); ++j) {
+	    ImmutableSequence<T>* b = vec[j];
+
+	    if (dupes.find(j) != dupes.end())
+		continue;
+
+	    if (a->hash() != b->hash())
+		continue;
+
+	    if (a->isEqual(*b))
+		dupes.insert(j);
+	}
+    }
+
+    size_t subt = 0;
+    for (set<size_t>::iterator iter = dupes.begin();
+	 iter != dupes.end(); iter++) {
+	ImmutableSequence<T>* dup = vec[*iter - subt];
+	vec.erase(vec.begin() + *iter - subt++);
+	delete dup;
+    }
+}
+
+template<class T>
 void MSA<T>::execute() {
-    {
-	cout << "Generating initial profile set..." << endl;
-	vector<ImmutableSequence<T>*> iSet = generator->generateSet(*this);
-	cout << "Scoring initial profiles..." << endl;
-	this->scoreAddProfiles(iSet);
-    }
-
-    while (!terminator->terminate(*this)) {
-	Timer a("Iteration");
-	if (this->scorer->rescore()) {
-	    cout << "\tRescoring profiles..." << endl;
-	    int size = this->profiles.size();
-
+    size_t bigCount = 0;
+    do { {
+	    Timer a("Iteration");
+	    
+	    if (profiles.size() > 0)
+		if (this->scorer->rescore()) {
+		    cout << "\tRescoring profiles..." << endl;
+		    int size = this->profiles.size();
+		    
 #pragma omp parallel for
-	    for (int i=0; i<size; i++) {
-		pair<double, ImmutableSequence<T>*>& p = this->profiles[i];
-
+		    for (int i=0; i<size; i++) {
+			pair<double, ImmutableSequence<T>*>& p = this->profiles[i];
+			
 #pragma omp critical
-		if (profileSiteInfo.count(p.second)) {
-		    delete profileSiteInfo[p.second];
-		    profileSiteInfo.erase(p.second);
+			if (profileSiteInfo.count(p.second)) {
+			    delete profileSiteInfo[p.second];
+			    profileSiteInfo.erase(p.second);
+			}
+			
+			SiteInformation* si = 
+			    new SiteInformation(p.second->length(),
+						sequences.size() / SIZE_DIV);
+			p.first = this->scorer->score(*p.second, *this, si);
+		    
+#pragma omp critical
+			profileSiteInfo[p.second] = si;
+		    }
 		}
-
-		SiteInformation* si = 
-		    new SiteInformation(p.second->length(),
-					sequences.size() / SIZE_DIV);
-		p.first = this->scorer->score(*p.second, *this, si);
-
-#pragma omp critical
-		profileSiteInfo[p.second] = si;
-	    }
-	}
  
-	cout << "\tRunning successor function..." << endl;
-	vector<ImmutableSequence<T>*> newSet =
-	    this->mutator->mutate(*this);
+	    vector<ImmutableSequence<T>*> newSet;
+	    if (profiles.size() > 0) {
+		cout << "\tRunning successor function..." << endl;
+		newSet = this->mutator->mutate(*this);
+	    } else {
+		cout << "\tRunning generation function..." << endl;
+		newSet = generator->generateSet(*this);
+	    }
 
-	cout << "\tScoring new profiles..." << endl;
-	this->scoreAddProfiles(newSet);
+	    cout << "\tEliminating duplicates" << endl;
+	    eliminateDuplicates(newSet);
 
-	cout << "\tSelecting new profile set..." << endl;
-	vector< pair<double, ImmutableSequence<T>* > > selset = 
-	    this->selector->select(*this, this->K);
+	    if (B > 0.0) {
+		//Use our bag of tricks to eliminate a few
+		trickyEliminate(newSet);
+	    }
 
-	this->profiles.swap(selset);
+	    cout << "\tScoring new profiles..." << endl;
+	    this->scoreAddProfiles(newSet);
 
-	for (size_t i=0; i<selset.size(); i++) {
-	    //This profile was not selected
-	    ImmutableSequence<T>* p = selset[i].second;
-	    if (profileSiteInfo.count(p))
-		delete profileSiteInfo[p];
-	    delete p;
+	    cout << "\tSelecting new profile set..." << endl;
+	    vector< pair<double, ImmutableSequence<T>* > > selset = 
+		this->selector->select(*this, this->K);
+
+	    this->profiles.swap(selset);
+
+	    for (size_t i=0; i<selset.size(); i++) {
+		//This profile was not selected
+		ImmutableSequence<T>* p = selset[i].second;
+		if (profileSiteInfo.count(p)) {
+		    delete profileSiteInfo[p];
+		    profileSiteInfo.erase(p);
+		}
+		delete p;
+	    }
+
+	    cout << endl;
+
+	    double bestScore = best().first;
+	    double worstScore = worst().first;
+	    cout << "Ending iteration: " << bigCount++
+		 << " best score: " << bestScore
+		 << " range: " << bestScore - worstScore
+		 << ".  Sizeof(best): " << best().second->length()
+		 << endl;
+	    cout << "\tScores: ";
+	    for (size_t i=0; i<profiles.size(); i++) {
+		cout << profiles[i].second->length() << ":" 
+		     << profiles[i].first << " ";
+	    }
+	    cout << endl;
 	}
-    }
+	cout << "----------------------" << endl << endl;
+    } while (!terminator->terminate(*this));
 }
 
 template<class T>
@@ -127,7 +189,7 @@ void MSA<T>::scoreAddProfiles(vector<ImmutableSequence<T>*>& profs) {
 //Used to sort profiles by their score
 template<class T>
 bool pairCmp( pair<double, ImmutableSequence<T>* > a,
-	  pair<double, ImmutableSequence<T>* > b ) {
+	      pair<double, ImmutableSequence<T>* > b ) {
     return a.first > b.first;
 }
 
@@ -167,18 +229,25 @@ MSA<T>::~MSA() {
 
 template<class T>
 void MSA<T>::output(ostream& os, ImmutableSequence<T>* profile) {
-    for (size_t i=0; i<sequences.size(); i++) {
+    long seqSize = sequences.size();
+
+#pragma omp parallel for
+    for (long i=0; i<seqSize; i++) {
 	ImmutableSequence<T>* seq = sequences[i];
-	cout << "Writing results for " << seq->identifier << endl;
-	os << ">" << seq->identifier << endl;
 	vector<T>* align = nwAlignment(*this->scores, *profile, *seq);
-	for (size_t i=0; i<align->size(); ++i) {
-	    if ((i % 70) == 0)
-		os << endl;
-	    os << toChar(align->at(i));
+
+#pragma omp critical 
+	{
+	    cout << "Writing results for " << seq->identifier << endl;
+	    os << ">" << seq->identifier << endl;
+	    for (size_t i=0; i<align->size(); ++i) {
+		if ((i % 70) == 0)
+		    os << endl;
+		os << toChar(align->at(i));
+	    }
+	    os << endl << endl;
+	    delete align;
 	}
-	os << endl << endl;
-	delete align;
     }
 }
 
@@ -309,7 +378,7 @@ public:
     virtual vector<ImmutableSequence<T>*> generateSet(MSA<T>& msa) {
 	vector<ImmutableSequence<T>*> ret;
 
-	for (size_t i=0; i<msa.K; ++i) {
+	for (size_t i=0; i<(msa.K*msa.A); ++i) {
 	    size_t s = rand() % msa.sequences.size();
 	    ret.push_back(msa.sequences[s]->copy());
 	}
@@ -333,7 +402,7 @@ public:
 	}
 	double avg = total / msa.sequences.size();
 
-	for (size_t i=0; i<msa.K; ++i) {
+	for (size_t i=0; i<(msa.K*msa.A); ++i) {
 	    ret.push_back(longRndSeq(avg));
 	}
 
@@ -351,19 +420,6 @@ public:
 
     IterationsTerminator(size_t max): count(0), max(max) {}
     virtual bool terminate(MSA<T>& msa) {
-	double bestScore = msa.best().first;
-	double worstScore = msa.worst().first;
-	cout << "Starting iteration: " << count 
-	     << " best score: " << msa.best().first
-	     << " range: " << bestScore - worstScore
-	     << ".  Sizeof(best): " << msa.best().second->length()
-	     << endl;
-	cout << "\tScores: ";
-	for (size_t i=0; i<msa.profiles.size(); i++) {
-	    cout << msa.profiles[i].second->length() << ":" 
-		 << msa.profiles[i].first << " ";
-	}
-	cout << endl;
 	return count++ >= max;
     };
 
@@ -382,28 +438,14 @@ public:
     ProgressTerminator(size_t max, double percent):
 	percent(percent), lastBest(-9999999.9), max(max), count(0), bigCount(0) {}
     virtual bool terminate(MSA<T>& msa) {
-	double bestScore = msa.best().first;
-	double worstScore = msa.worst().first;
-	cout << "Starting iteration: " << bigCount++
-	     << " best score: " << msa.best().first
-	     << " range: " << bestScore - worstScore
-	     << ".  Sizeof(best): " << msa.best().second->length()
-	     << endl;
-	cout << "\tScores: ";
-	for (size_t i=0; i<msa.profiles.size(); i++) {
-	    cout << msa.profiles[i].second->length() << ":" 
-		 << msa.profiles[i].first << " ";
-	}
-	cout << endl;
-
-	double diff = bestScore - lastBest;
+	double diff = msa.best().first - lastBest;
 	diff = diff / lastBest;
 	if (diff < percent)
 	    count++;
 	else
 	    count = 0;
 	
-	lastBest = bestScore;
+	lastBest = msa.best().first;
 	return count >= max;
     };
 
@@ -548,6 +590,67 @@ public:
 				<< outputs << ", mutations < " << mutations << endl; }
 };
 
+
+
+
+/*********************************
+ *   Done with plugins
+ *********************************/
+
+//Implement our bag of tricks down here
+template<class T>
+void MSA<T>::trickyEliminate(vector<ImmutableSequence<T>*>& profs) {
+    vector< pair<double, ImmutableSequence<T>* > > scores;
+
+    SampledStarScore<T> samp(0.05, *this);
+    long pSize = profs.size();
+    long total = 0;
+
+    cout << "\tQuick scoring: ";
+    cout.flush();
+
+#pragma omp parallel for shared(total)
+    for (long i=0; i<pSize; ++i) {
+	double sizeDiff = profs[i]->length() - avgSize;
+	sizeDiff /= sequences.size();
+
+	double score = samp.score(*profs[i], *this, NULL);
+	score += score * sizeDiff;
+
+	//cout << profs[i]->length() << ":" << score << " ";
+	//cout.flush();
+
+	pair<double, ImmutableSequence<T>* > p(score, profs[i]);
+#pragma omp critical
+	{
+	    scores.push_back(p);
+	    total ++;
+	    if ((total % 100) == 0) {
+		cout << total << ", ";
+		cout.flush();
+	    }
+	}
+    }
+
+    cout << endl;
+
+    sort(scores.begin(), scores.end(), pairCmp<T>);
+
+    size_t save = scores.size() * B;
+    while (profs.size() > save) {
+	ImmutableSequence<T>* del = scores.back().second;
+	scores.pop_back();
+	profs.erase(find(profs.begin(), profs.end(), del));
+
+	if (profileSiteInfo.count(del)) {
+	    delete profileSiteInfo[del];
+	    profileSiteInfo.erase(del);
+	}
+	delete del;
+    }
+}
+
+//MSA's primary run function
 int msa_main(int argv, char** argc) {
     srand(time(NULL));
 
@@ -593,7 +696,10 @@ int msa_main(int argv, char** argc) {
 	msa.index();
     }
 
-    double a = 2.0, m = 300.0;
+    msa.A = 2.0;
+    msa.B = 0.0;
+    double m = 300.0;
+    double hGap = 250;
 
     for (int i=1; i<argv; ++i) {
 	string opt = argc[i];
@@ -615,8 +721,29 @@ int msa_main(int argv, char** argc) {
 		return 1;
 	    }
 	    opt = argc[i];
-	    a = atof(opt.c_str());
+	    msa.A = atof(opt.c_str());
 	}
+
+	if (opt == "-b") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need value after -b" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    msa.B = atof(opt.c_str());
+	}
+
+	if (opt == "-hg") {
+	    i++;
+	    if (i >= argv) {
+		cerr << "Need value after -hg" << endl;
+		return 1;
+	    }
+	    opt = argc[i];
+	    hGap = atof(opt.c_str());
+	}
+
 
 	if (opt == "-m") {
 	    i++;
@@ -685,11 +812,11 @@ int msa_main(int argv, char** argc) {
 	}
 
 	if (opt == "-randmut") {
-	    msa.mutator = new TotallyRandomMutator<GeneticSymbols>(msa.K*a, m);
+	    msa.mutator = new TotallyRandomMutator<GeneticSymbols>(msa.K*msa.A, m);
 	}
 
 	if (opt == "-stomut") {
-	    msa.mutator = new StochasticMutator<GeneticSymbols>(msa.K*a, m);
+	    msa.mutator = new StochasticMutator<GeneticSymbols>(msa.K*msa.A, m);
 	}
 
 	if (opt == "-out") {
@@ -710,7 +837,7 @@ int msa_main(int argv, char** argc) {
 	    }
 	    opt = argc[i];
 	    profOutputFile = opt;
-	}	
+	}
     }
 
     //Fill in defaults
@@ -718,7 +845,7 @@ int msa_main(int argv, char** argc) {
 	msa.K = 10;
 
     if (msa.scores == NULL)
-	msa.scores = new GenScores(1, -.5, 5.0, 1.6, 250, 50);
+	msa.scores = new GenScores(1.9, 0, 10, 0.2, hGap, hGap/10);
 
     if (msa.scorer == NULL)
 	msa.scorer = new StarScore<GeneticSymbols>();
@@ -727,18 +854,26 @@ int msa_main(int argv, char** argc) {
     if (msa.generator == NULL)
 	msa.generator = new RandomPicker<GeneticSymbols>();
     if (msa.terminator == NULL)
-	//msa.terminator = new IterationsTerminator<GeneticSymbols>(25);
 	msa.terminator = new ProgressTerminator<GeneticSymbols>(3, .005);
     if (msa.mutator == NULL)
-	msa.mutator = new StochasticMutator<GeneticSymbols>(msa.K*a, m);
+	msa.mutator = new StochasticMutator<GeneticSymbols>(msa.K*msa.A, m);
 
     cout << "K = " << msa.K << endl;
+    cout << "A = " << msa.A << endl;
     cout << "Size_Div = " << SIZE_DIV << endl;
+    if (msa.B > 0.0) {
+	cout << "B = " << msa.B 
+	     << " ... Using bag of tricks for quick filtering" << endl;
+    }
     msa.scorer->print();
     msa.selector->print();
     msa.generator->print();
     msa.mutator->print();
     msa.terminator->print();
+
+    cout << endl
+	 << "Starting execution:" << endl
+	 << "-----------------------" << endl;
 
     {Timer a("Execution");
 	msa.execute();

@@ -67,6 +67,7 @@ public:
     Generator<T>* generator;
 
     size_t K;
+    double A, B;
     double avgSize;
 
     map<T[Ktup], size_t> seqIndex;
@@ -85,6 +86,7 @@ public:
     void index();
     void execute();
     void output(ostream& os, ImmutableSequence<T>* profile);
+    void trickyEliminate(vector<ImmutableSequence<T>*>&);
 
     pair<double, ImmutableSequence<T>* > best();
     pair<double, ImmutableSequence<T>* > worst();
