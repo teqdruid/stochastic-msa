@@ -27,10 +27,13 @@ TESTOBJS =$(TESTS:.cpp=.o)
 RM 	= /bin/rm -f 	
 STRIP	= strip
 
-all:	test speedTest msa pairalign bali_score
+all:	test speedTest msa pairalign bali_score sstest
 
 bali_score:
 	gcc -o bali_score bali_score.c -O3
+
+sstest: sstest.cpp
+	g++ -o sstest sstest.cpp -I. -O3
 
 test: test.o $(OBJS) $(TESTOBJS) $(INCL)
 	g++ -o $@ test.cpp $(OBJS) $(TESTOBJS) $(CXXFLAGS) $(LDFLAGS) -lcppunit

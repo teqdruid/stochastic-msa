@@ -195,7 +195,7 @@ public:
 	if (o.seqSize != seqSize)
 	    return false;
 
-	return memcmp(seq, o.seq, seqSize) == 1;
+	return bcmp(seq, o.seq, seqSize) == 0;
     }
 };
 
