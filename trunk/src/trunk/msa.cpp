@@ -7,7 +7,7 @@
 #include <algo.h>
 #include "util.h"
 
-static size_t SIZE_DIV = 5;
+static size_t SIZE_DIV = 10;
 
 template<class T>
 void MSA<T>::read(istream& is) {
@@ -32,36 +32,42 @@ void MSA<T>::read(istream& is) {
 }
 
 template<class T>
-static void eliminateDuplicates(vector<ImmutableSequence<T>*>& vec) {
-    set<size_t> dupes;
+static void eliminateDuplicates(vector<ImmutableSequence<T>*>& vec, bool del = true) {
+    bool dupes[vec.size()];
+    memset(dupes, false, sizeof(bool) * vec.size());
 
     for (size_t i=0; i<vec.size(); ++i) {
 	ImmutableSequence<T>* a = vec[i];
 
-	if (dupes.find(i) != dupes.end())
+	if (dupes[i])
 	    continue;
 
 	for (size_t j=i+1; j<vec.size(); ++j) {
 	    ImmutableSequence<T>* b = vec[j];
 
-	    if (dupes.find(j) != dupes.end())
+	    if (dupes[j])
 		continue;
 
 	    if (a->hash() != b->hash())
 		continue;
 
 	    if (a->isEqual(*b))
-		dupes.insert(j);
+		dupes[j] = true;
+		//dupes.insert(j);
 	}
     }
 
-    size_t subt = 0;
-    for (set<size_t>::iterator iter = dupes.begin();
-	 iter != dupes.end(); iter++) {
-	ImmutableSequence<T>* dup = vec[*iter - subt];
-	vec.erase(vec.begin() + *iter - subt++);
-	delete dup;
+    size_t removed = 0;
+    for (long i=vec.size()-1; i >= 0; --i)  {
+	if (dupes[i]) {
+	    ImmutableSequence<T>* dup = vec[i];
+	    vec.erase(vec.begin() + i);
+	    if (del) delete dup;
+	    removed++;
+	}
     }
+
+    cout << "\tRemoved " << removed << " duplicates" << endl;
 }
 
 template<class T>
@@ -104,7 +110,6 @@ void MSA<T>::execute() {
 		newSet = generator->generateSet(*this);
 	    }
 
-	    cout << "\tEliminating duplicates" << endl;
 	    eliminateDuplicates(newSet);
 
 	    if (B > 0.0) {
@@ -121,9 +126,19 @@ void MSA<T>::execute() {
 
 	    this->profiles.swap(selset);
 
+	    vector<ImmutableSequence<T>*> delSet;	    
+
 	    for (size_t i=0; i<selset.size(); i++) {
-		//This profile was not selected
 		ImmutableSequence<T>* p = selset[i].second;
+		delSet.push_back(p);
+	    }
+
+	    eliminateDuplicates(delSet, false);
+
+	    for (size_t i=0; i<delSet.size(); i++) {
+		ImmutableSequence<T>* p = delSet[i];
+		//This profile was not selected
+
 		if (profileSiteInfo.count(p)) {
 		    delete profileSiteInfo[p];
 		    profileSiteInfo.erase(p);
@@ -519,6 +534,7 @@ public:
     StochasticMutator(size_t outputs, size_t mutations) :
 	outputs(outputs), mutations(mutations) {
 	srand(time(NULL));
+	srandom(time(NULL));
     }
 
     virtual vector<ImmutableSequence<T>*> mutate(MSA<T>& msa) {
@@ -538,6 +554,17 @@ public:
 		assert(msa.profileSiteInfo.count(is) > 0);
 		si = msa.profileSiteInfo[is];
 	    }
+
+/*	    if (i == 0) {
+		cout << endl;
+		for (size_t j=0; j<is->length(); ++j) {
+		    cout << j << ": " 
+			         << si->subst[j]
+			 << ", " << si->ins[j] 
+			 << ", " << si->dels[j] 
+			 << endl;
+		}
+		} */
 
 	    size_t iLen = is->length() * 3;
 	    size_t total = 0;
@@ -636,7 +663,7 @@ void MSA<T>::trickyEliminate(vector<ImmutableSequence<T>*>& profs) {
 
     sort(scores.begin(), scores.end(), pairCmp<T>);
 
-    size_t save = scores.size() * B;
+    size_t save = K * A * B;
     while (profs.size() > save) {
 	ImmutableSequence<T>* del = scores.back().second;
 	scores.pop_back();

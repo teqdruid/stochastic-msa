@@ -86,7 +86,7 @@ size_t stochasticSelect(A* arr, size_t len) {
 	    return i;
     }
 
-    return len - 1;
+    assert(false);
 }
 
 #endif 	    /* !UTIL_H_ */
